@@ -1,7 +1,15 @@
-name: Probe ubuntu on public repo
+name: Probe runner availability
 on: workflow_dispatch
 jobs:
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "runner ok"; uname -a
+  mac13:
+    runs-on: macos-13
+    steps: [{run: "xcodebuild -version"}]
+  mac14:
+    runs-on: macos-14
+    steps: [{run: "xcodebuild -version"}]
+  mac15:
+    runs-on: macos-15
+    steps: [{run: "xcodebuild -version"}]
+  maclarge:
+    runs-on: macos-latest
+    steps: [{run: "xcodebuild -version"}]
