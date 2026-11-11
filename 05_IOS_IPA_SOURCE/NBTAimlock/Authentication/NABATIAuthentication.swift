@@ -8,6 +8,32 @@ public struct NABATISessionInfo {
     public let remainingDays: Int
     public let expiresAt: String
     public let boundDevice: String
+    /// Server-reported expiry in Unix milliseconds, when the server supplied one.
+    ///
+    /// `expiresAt` is the display string; this is the machine value the local
+    /// expiry watchdog compares against. It is only ever a *hint* — the server
+    /// remains the authority on whether the KEY is still valid.
+    public let expiresAtMillis: Double?
+
+    public init(
+        key: String,
+        maskedKey: String,
+        sessionToken: String,
+        planType: String,
+        remainingDays: Int,
+        expiresAt: String,
+        boundDevice: String,
+        expiresAtMillis: Double? = nil
+    ) {
+        self.key = key
+        self.maskedKey = maskedKey
+        self.sessionToken = sessionToken
+        self.planType = planType
+        self.remainingDays = remainingDays
+        self.expiresAt = expiresAt
+        self.boundDevice = boundDevice
+        self.expiresAtMillis = expiresAtMillis
+    }
 }
 
 /// Result of a server-side KEY verification.
@@ -117,7 +143,8 @@ public final class NABATIAuthentication {
                     planType: plan,
                     remainingDays: remaining,
                     expiresAt: exp,
-                    boundDevice: NABATIDevice.shared.modelName
+                    boundDevice: NABATIDevice.shared.modelName,
+                    expiresAtMillis: self.expiresAtMillis(json["expiresAt"])
                 )
                 completion(.success(.authorized(session)))
 
@@ -237,5 +264,12 @@ public final class NABATIAuthentication {
         formatter.locale = Locale(identifier: "vi_VN")
         formatter.dateFormat = "dd/MM/yyyy HH:mm"
         return formatter.string(from: Date(timeIntervalSince1970: millis / 1000))
+    }
+
+    /// Server expiry normalised to Unix milliseconds, or `nil` when the server
+    /// sent no expiry (permanent KEY) or an unparseable value.
+    private func expiresAtMillis(_ value: Any?) -> Double? {
+        guard let n = (value as? NSNumber)?.doubleValue, n > 0 else { return nil }
+        return n > 100_000_000_000 ? n : n * 1000
     }
 }

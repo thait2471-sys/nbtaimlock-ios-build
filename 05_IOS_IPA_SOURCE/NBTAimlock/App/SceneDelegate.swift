@@ -30,9 +30,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Remove privacy blur when returning to foreground
         privacyBlurView?.removeFromSuperview()
         privacyBlurView = nil
+        // iOS suspends timers in the background, so the server-authority guard
+        // is restarted (and re-checked immediately) here rather than relying on
+        // a timer that may have been frozen for hours.
+        NABATICore.shared.resumeServerGuard()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
+        // Stop the heartbeat while suspended; sceneDidBecomeActive restarts it.
+        NABATICore.shared.suspendServerGuard()
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
