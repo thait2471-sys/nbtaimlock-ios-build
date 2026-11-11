@@ -50,16 +50,15 @@ public final class NABATICrypto {
     /// verify and heartbeat request; resolving it each time would mean keychain
     /// traffic on every network call.
     public func getOrCreateHardwareUUID() -> String {
+        // One critical section for the whole resolution. Two threads resolving at
+        // once on first launch could otherwise mint two different random UUIDs,
+        // and the loser would register the device with an identity that is then
+        // overwritten — the same "new device" problem this method exists to avoid.
         hardwareIdLock.lock()
-        let cached = cachedHardwareId
-        hardwareIdLock.unlock()
-        if let cached = cached { return cached }
-
+        defer { hardwareIdLock.unlock() }
+        if let cached = cachedHardwareId { return cached }
         let resolved = resolveHardwareId()
-
-        hardwareIdLock.lock()
         cachedHardwareId = resolved
-        hardwareIdLock.unlock()
         return resolved
     }
 
