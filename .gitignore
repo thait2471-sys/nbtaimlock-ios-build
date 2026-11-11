@@ -1,0 +1,8 @@
+build/
+DerivedData/
+*.ipa
+*.p12
+*.mobileprovision
+*.keystore
+.DS_Store
+__pycache__/

@@ -1,0 +1,158 @@
+name: Build iOS IPA (unsigned)
+
+# Compiles the shipped Xcode project into a real, structurally valid unsigned
+# IPA and gates it with verify_unsigned_ipa.py.
+#
+# Why an unsigned build: compiling Swift, compiling Assets.xcassets into
+# Assets.car, and producing an Apple CMS signature all require Apple's
+# toolchain. The compiled binary cannot be reproduced on Windows. GitHub's
+# macos-14 runner supplies Xcode; this workflow does the compile, and
+# sign-ios.yml turns the result into a signed, installable IPA once the
+# signing secrets exist.
+#
+# An unsigned IPA is deliberate: iOS refuses to install an unsigned bundle,
+# so this artifact is the input for ESign / Sideloadly / AltStore, or for the
+# signing workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Xcode build configuration
+        required: true
+        default: Release
+        type: choice
+        options: [Release, Debug]
+  push:
+    tags:
+      - "ios-v*"
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: 05_IOS_IPA_SOURCE/NBTAimlock/NBTAimlock.xcodeproj
+  SCHEME: NBTAimlock
+  APP_NAME: NBTAimlock
+  BUNDLE_ID: com.nbtaimlock.ios
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcode-select -p
+
+      - name: Show available SDKs
+        run: xcodebuild -showsdks
+
+      - name: Assert project inputs exist
+        run: |
+          set -euo pipefail
+          test -d "$PROJECT" || { echo "missing project: $PROJECT" >&2; exit 1; }
+          test -f "05_IOS_IPA_SOURCE/NBTAimlock/App/Info.plist" || { echo "missing Info.plist" >&2; exit 1; }
+          # CFBundleIconName must be present or the compiled asset catalog icon
+          # is never referenced and iOS can reject the install.
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" \
+            "05_IOS_IPA_SOURCE/NBTAimlock/App/Info.plist" \
+            | grep -qx "AppIcon" || { echo "Info.plist must declare CFBundleIconName=AppIcon" >&2; exit 1; }
+
+      - name: Static Swift source sanity
+        run: |
+          set -euo pipefail
+          # Catches the failures that would otherwise only appear on the Mac:
+          # unbalanced braces, duplicated top-level declarations, and iOS-15 API
+          # used in a target that still deploys to iOS 14.
+          mkdir -p build
+          python3 05_IOS_IPA_SOURCE/tools/check_swift_sources.py | tee build/swift_sources.txt
+
+      - name: Build (unsigned)
+        env:
+          CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            clean build | tee build/xcodebuild.log
+
+      - name: Locate built app
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find build/DerivedData/Build/Products -maxdepth 2 -name "$APP_NAME.app" -type d | head -1)"
+          test -n "$APP_PATH" || { echo "build produced no $APP_NAME.app" >&2; exit 1; }
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+          echo "Built: $APP_PATH"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Info.plist"
+          # Refuse to package a binary that is not the Swift build. A stale
+          # Objective-C bundle packs into a structurally valid IPA but installs
+          # and then fails — the exact "Không thể cài đặt" symptom.
+          if otool -L "$APP_PATH/$APP_NAME" | grep -q "libswift"; then
+            echo "Swift runtime linked in $APP_NAME"
+          else
+            otool -l "$APP_PATH/$APP_NAME" | grep -q "__swift5_" \
+              || { echo "SECURITY: built binary has no Swift runtime or __swift5_* sections — refusing to ship" >&2; exit 1; }
+            echo "Swift metadata (__swift5_*) present in $APP_NAME"
+          fi
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          rm -rf build/Payload build/dist
+          mkdir -p build/Payload build/dist
+          cp -R "$APP_PATH" "build/Payload/$APP_NAME.app"
+          # A sideload input must not ship any signature material.
+          rm -rf "build/Payload/$APP_NAME.app/_CodeSignature"
+          rm -f  "build/Payload/$APP_NAME.app/embedded.mobileprovision"
+          rm -rf "build/Payload/$APP_NAME.app/SC_Info"
+          # --norsrc/--noextattr/--noqtn/--noacl keep AppleDouble (__MACOSX) and
+          # quarantine metadata out of the archive; __sequesterRsrc would create
+          # exactly the __MACOSX entries iOS and the gate reject.
+          /usr/bin/ditto -c -k --norsrc --noextattr --noqtn --noacl --keepParent \
+            build/Payload "build/dist/nbtaimlock-release-unsigned.ipa"
+
+      - name: Gate with verify_unsigned_ipa.py
+        run: |
+          set -euo pipefail
+          python3 05_IOS_IPA_SOURCE/tools/verify_unsigned_ipa.py \
+            build/dist/nbtaimlock-release-unsigned.ipa | tee build/verify.txt
+
+      - name: Write checksum
+        run: |
+          set -euo pipefail
+          shasum -a 256 build/dist/nbtaimlock-release-unsigned.ipa \
+            | tee build/dist/nbtaimlock-release-unsigned.ipa.sha256
+          wc -c < build/dist/nbtaimlock-release-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbtaimlock-unsigned-ipa
+          path: |
+            build/dist/nbtaimlock-release-unsigned.ipa
+            build/dist/nbtaimlock-release-unsigned.ipa.sha256
+            build/verify.txt
+            build/xcodebuild.log
+          retention-days: 14
+          if-no-files-found: error
