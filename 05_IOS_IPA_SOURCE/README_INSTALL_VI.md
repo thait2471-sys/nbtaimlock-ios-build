@@ -101,16 +101,16 @@ Lần build macOS đầu tiên đã lộ ra lỗi cú pháp thật trong source
 - `_CodeSignature/` · `embedded.mobileprovision` · `SC_Info`: **không có**
 - 5 marker của app Objective-C cũ (`NABATIMainViewController`, `nbt_hwid_v5`,
   `nbt_key_v5`, `_apply_locked_ui`, `/api/license/authorize`): **tất cả vắng mặt**
-- SHA-256 IPA: `9e6eeac8011d0dd72a6dcff8a2cb38303e1b0c262fdb7801c92e9d8bdfae67bd`
+- SHA-256 IPA: `404ac1c4c37198776a6ba8112c0aec2cd3d45f187b53ea9656f2b159082318c7`
 
 Cổng `verify_unsigned_ipa.py` in `build : swift` và **PASS** — không cần cờ
 `--legacy-native`. Bản này đã gồm bộ bảo vệ liên tục (heartbeat 20 giây +
 watchdog hạn 1 giây) và chặn cứng khi phát hiện app bị chỉnh sửa.
 
-#### Hai lỗi khóa-oan đã sửa trong bản này
+#### Ba lỗi khóa-oan / mất dữ liệu đã sửa trong bản này
 
-Cả hai đều bắn trên một chiếc iPhone **hoàn toàn nguyên bản**, tức là khách trả
-tiền bị khóa mà không có lỗi gì từ phía họ:
+Cả ba đều xảy ra với khách trả tiền mà không có lỗi gì từ phía họ (hai lỗi
+đầu bắn trên iPhone hoàn toàn nguyên bản):
 
 1. **Đổi bundle ID bị coi là "app bị chỉnh sửa".** ESign và Sideloadly đều đổi
    `CFBundleIdentifier` khi khách ký bằng chứng chỉ của mình — đúng như mục 3 và
@@ -121,6 +121,10 @@ tiền bị khóa mà không có lỗi gì từ phía họ:
    nằm trong cryptex và dyld báo đường dẫn `/private/preboot/Cryptexes/...` thay
    vì `/System/Library/...`. Allowlist cũ coi đó là "dylib lạ" → khóa máy nguyên bản.
    Đã bổ sung `/private/preboot/cryptexes/` và `/system/cryptexes/`.
+3. **Mất mạng / bảo trì làm mất bộ độ nhạy đã chỉnh.** Hai nhánh heartbeat cũ
+   gọi `resetPresetToDefault()` khi máy chủ bảo trì hoặc khi đủ 3 lần mất kết nối —
+   khóa phiên là đúng nhưng đồng thời xóa luôn bộ độ nhạy khách đã chỉnh và lưu
+   xuống UserDefaults. Nay chỉ khóa phiên, giữ nguyên dữ liệu khách.
 
 Bằng chứng inject dylib (`RUNTIME_INJECTION_FRAMEWORKS_FOUND`,
 `UNAUTHORIZED_RUNTIME_DYLIB_LOADED`) **vẫn chặn cứng** như trước.
