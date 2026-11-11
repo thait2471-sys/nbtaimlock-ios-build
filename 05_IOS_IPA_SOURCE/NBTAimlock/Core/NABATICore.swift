@@ -514,7 +514,8 @@ public final class NABATICore: ObservableObject {
                     self.errorMessage = "Mất kết nối máy chủ quá lâu nên phiên đã bị khóa. Vui lòng kiểm tra mạng và nhập lại KEY."
                     self.statusMessage = nil
                     self.appState = .locked
-                    self.resetPresetToDefault()
+                    // Presets are the customer's own tuned numbers and survive
+                    // an outage; the session lock is temporary, their input is not.
                     self.consecutiveUnreachableHeartbeats = 0
                     completion?(false)
                     return
