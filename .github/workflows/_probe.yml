@@ -1,0 +1,21 @@
+name: Probe runner availability
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: runner label
+        required: true
+        default: ubuntu-latest
+        type: choice
+        options: [ubuntu-latest, macos-14]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 5
+    steps:
+      - name: Say hello
+        run: |
+          echo "runner is up"
+          uname -a
