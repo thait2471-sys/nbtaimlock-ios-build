@@ -13,6 +13,21 @@ public final class NABATISecurity {
     public struct SecurityStatus {
         public let isSecure: Bool
         public let warnings: [String]
+
+        /// Warnings that prove the bundle was modified by someone other than us,
+        /// rather than merely suggesting the device is unusual.
+        ///
+        /// The distinction matters: jailbreak heuristics produce false positives
+        /// on ordinary carrier/enterprise setups, and locking a paying customer
+        /// out over a heuristic is worse than the tampering it guesses at. These
+        /// two cannot be produced by a normal install — the bundle identifier is
+        /// baked into the binary, and an unexpected loaded dylib means code was
+        /// injected into this process.
+        public var isTampered: Bool {
+            warnings.contains("REPACKAGED_BUNDLE_IDENTIFIER_MISMATCH")
+                || warnings.contains("RUNTIME_INJECTION_FRAMEWORKS_FOUND")
+                || warnings.contains("UNAUTHORIZED_RUNTIME_DYLIB_LOADED")
+        }
     }
 
     /// Performs comprehensive integrity and runtime security assessment
@@ -158,6 +173,15 @@ public final class NABATISecurity {
     public func checkBundleIntegrity() -> Bool {
         guard let currentId = Bundle.main.bundleIdentifier else { return false }
         return currentId == NABATISecurity.expectedBundleIdentifier
+    }
+
+    /// Whether a specific warning indicates an environment that cannot be
+    /// trusted to run unmodified — used to enforce (fail closed) on hard
+    /// evidence while only warning on jailbreak heuristics.
+    public func warningIsTampering(_ warning: String) -> Bool {
+        warning == "REPACKAGED_BUNDLE_IDENTIFIER_MISMATCH"
+            || warning == "RUNTIME_INJECTION_FRAMEWORKS_FOUND"
+            || warning == "UNAUTHORIZED_RUNTIME_DYLIB_LOADED"
     }
 
     public func currentMonotonicSeconds() -> Double {

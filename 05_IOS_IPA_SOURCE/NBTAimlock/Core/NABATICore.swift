@@ -385,6 +385,19 @@ public final class NABATICore: ObservableObject {
     public func unlockWithKey(_ key: String) {
         errorMessage = nil
 
+        // Hard tamper evidence (rewritten bundle id, injected dylib) means this
+        // process is not the app we shipped. Refuse before the KEY is even sent:
+        // a modified binary could also have been modified to ignore the server's
+        // answer, so continuing would waste the customer's attempts and hand an
+        // attacker a valid session token.
+        let security = NABATISecurity.shared.checkSecurityEnvironment()
+        if security.isTampered {
+            notificationFeedback.notificationOccurred(.error)
+            errorMessage = "Ứng dụng đã bị chỉnh sửa trái phép. Vui lòng cài lại bản chính thức từ cửa hàng."
+            appState = .locked
+            return
+        }
+
         guard !isGateBlocking else {
             errorMessage = serviceStatus?.state.content ?? "Hệ thống đang bảo trì. Vui lòng quay lại sau."
             return
