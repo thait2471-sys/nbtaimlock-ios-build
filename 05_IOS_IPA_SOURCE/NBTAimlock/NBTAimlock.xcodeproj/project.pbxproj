@@ -10,10 +10,7 @@
 		AA0000012CEE000100000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000012CEE000100000001 /* AppDelegate.swift */; };
 		AA0000022CEE000100000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000022CEE000100000001 /* SceneDelegate.swift */; };
 		AA0000032CEE000100000001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000032CEE000100000001 /* MainViewController.swift */; };
-		AA0000042CEE000100000001 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000042CEE000100000001 /* KeychainManager.swift */; };
-		AA0000052CEE000100000001 /* SecurityGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000052CEE000100000001 /* SecurityGuard.swift */; };
 		AA0000062CEE000100000001 /* NABATISecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000062CEE000100000001 /* NABATISecurity.swift */; };
-		AA0000072CEE000100000001 /* RemoteConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000072CEE000100000001 /* RemoteConfigManager.swift */; };
 		AA0000082CEE000100000001 /* NABATINetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000082CEE000100000001 /* NABATINetwork.swift */; };
 		AA0000092CEE000100000001 /* NABATIServiceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000092CEE000100000001 /* NABATIServiceStatus.swift */; };
 		AA00000A2CEE000100000001 /* NABATIAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000A2CEE000100000001 /* NABATIAuthentication.swift */; };
@@ -28,10 +25,7 @@
 		AB0000012CEE000100000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AB0000022CEE000100000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		AB0000032CEE000100000001 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
-		AB0000042CEE000100000001 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
-		AB0000052CEE000100000001 /* SecurityGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityGuard.swift; sourceTree = "<group>"; };
 		AB0000062CEE000100000001 /* NABATISecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATISecurity.swift; sourceTree = "<group>"; };
-		AB0000072CEE000100000001 /* RemoteConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConfigManager.swift; sourceTree = "<group>"; };
 		AB0000082CEE000100000001 /* NABATINetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATINetwork.swift; sourceTree = "<group>"; };
 		AB0000092CEE000100000001 /* NABATIServiceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIServiceStatus.swift; sourceTree = "<group>"; };
 		AB00000A2CEE000100000001 /* NABATIAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIAuthentication.swift; sourceTree = "<group>"; };
@@ -129,7 +123,6 @@
 		AC0000082CEE000100000001 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
-				AB0000072CEE000100000001 /* RemoteConfigManager.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -153,8 +146,6 @@
 		AC00000B2CEE000100000001 /* Security */ = {
 			isa = PBXGroup;
 			children = (
-				AB0000042CEE000100000001 /* KeychainManager.swift */,
-				AB0000052CEE000100000001 /* SecurityGuard.swift */,
 				AB0000062CEE000100000001 /* NABATISecurity.swift */,
 			);
 			path = Security;
@@ -240,10 +231,7 @@
 				AA0000012CEE000100000001 /* AppDelegate.swift in Sources */,
 				AA0000022CEE000100000001 /* SceneDelegate.swift in Sources */,
 				AA0000032CEE000100000001 /* MainViewController.swift in Sources */,
-				AA0000042CEE000100000001 /* KeychainManager.swift in Sources */,
-				AA0000052CEE000100000001 /* SecurityGuard.swift in Sources */,
 				AA0000062CEE000100000001 /* NABATISecurity.swift in Sources */,
-				AA0000072CEE000100000001 /* RemoteConfigManager.swift in Sources */,
 				AA0000082CEE000100000001 /* NABATINetwork.swift in Sources */,
 				AA0000092CEE000100000001 /* NABATIServiceStatus.swift in Sources */,
 				AA00000A2CEE000100000001 /* NABATIAuthentication.swift in Sources */,
