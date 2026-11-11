@@ -421,10 +421,20 @@ public final class NABATICore: ObservableObject {
                 self.errorMessage = nil
                 self.appState = .authorized(session)
 
-            case .success(.rejected(let message, _)):
+            case .success(.rejected(let message, let code)):
                 self.notificationFeedback.notificationOccurred(.error)
                 self.statusMessage = nil
-                self.errorMessage = message
+                // A device-limit rejection is the one verdict the customer can
+                // actually resolve, but only if they are told how. The bare
+                // server text reads like a dead end, so append the exact steps
+                // and the device id support needs to find the slot.
+                if code == "KEY_DA_GAN_THIET_BI" || code == "GIOI_HAN_THIET_BI" {
+                    self.errorMessage = message +
+                        "\n\nCách xử lý: nhờ quản trị viên vào Admin → tab Keys → mở KEY của bạn → bấm “📱 Gỡ 1 thiết bị”, " +
+                        "rồi bấm MỞ KHÓA lại.\nMã thiết bị của bạn: \(NABATIDevice.shared.hardwareId)"
+                } else {
+                    self.errorMessage = message
+                }
                 self.appState = .locked
 
             case .success(.paused(let message)):

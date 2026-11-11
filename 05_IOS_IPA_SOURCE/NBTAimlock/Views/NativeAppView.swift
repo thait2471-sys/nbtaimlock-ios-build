@@ -222,6 +222,7 @@ struct KeyVerificationView: View {
                             Text(err)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.red)
+                                .fixedSize(horizontal: false, vertical: true)
                             Spacer()
                         }
                         .padding(.horizontal, 4)
