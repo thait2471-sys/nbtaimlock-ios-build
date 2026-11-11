@@ -488,13 +488,15 @@ public final class NABATICore: ObservableObject {
 
             case .paused(let message):
                 // The KEY is still valid; the service is simply unavailable. Keep
-                // the token and the stored license key intact.
+                // the token, the stored license key and the customer's tuned
+                // presets intact — wiping their sensitivity numbers because the
+                // server went into maintenance would be data loss for something
+                // that is not their fault.
                 self.statusMessage = nil
                 self.errorMessage = nil
                 self.appState = .locked
                 self.gateMode = .maintenance
                 self.gateErrorText = message
-                self.resetPresetToDefault()
                 self.checkServiceGate(isUserRetry: true)
                 completion?(false)
 
