@@ -98,6 +98,6 @@ public final class NABATICrypto {
         if status == errSecSuccess {
             return Data(bytes).map { String(format: "%02x", $0) }.joined()
         }
-        return UUID().uuidString.replacingOccurrences(of: "-", with "").lowercased()
+        return UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     }
 }

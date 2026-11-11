@@ -31,6 +31,20 @@ IOS_15_ONLY = [
     (re.compile(r"(?<![A-Za-z_])\.refreshable\b"), 15, ".refreshable"),
 ]
 
+# Argument labels that the compiler requires verbatim. Writing `of: "-", with ""`
+# is a parse error ("expected ',' separator"), and it is the exact typo that sat
+# in NABATICrypto.swift until the first real macOS build. Matching on the label
+# followed by something other than `:` catches it without a Swift toolchain.
+REQUIRED_LABELS = [
+    ("replacingOccurrences", ("of", "with", "options", "range")),
+    ("components", ("separatedBy",)),
+    ("trimmingCharacters", ("in",)),
+    ("addingPercentEncoding", ("withAllowedCharacters",)),
+    ("data", ("using", "contentsOf", "options")),
+    ("range", ("of", "in")),
+    ("index", ("of", "in")),
+]
+
 
 def strip_literals_and_comments(source: str) -> str:
     """Blank out strings and comments while keeping line structure intact."""
@@ -159,6 +173,36 @@ def check_ios_version_apis(files: list[Path]) -> list[str]:
     return problems
 
 
+def check_argument_labels(files: list[Path]) -> list[str]:
+    """Reject `label value` where Swift requires `label: value`.
+
+    Comments and literals are preserved here on purpose: the typo lives inside
+    the argument list, and `with ""` is only visible with the string intact.
+    """
+    problems = []
+    for path in files:
+        raw = path.read_text(encoding="utf-8")
+        rel = path.relative_to(SOURCE_ROOT).as_posix()
+        for func_name, labels in REQUIRED_LABELS:
+            for label in labels:
+                # `label:` (fine) vs `label ` / `label"` (missing colon).
+                pattern = re.compile(
+                    r"(?<![A-Za-z0-9_])"
+                    + re.escape(func_name)
+                    + r"\s*\([^()\n]*?"
+                    + re.escape(label)
+                    + r"(?!\s*:)(?=\s|$|[\"')\]},])"
+                )
+                for match in pattern.finditer(raw):
+                    line = raw.count("\n", 0, match.start()) + 1
+                    snippet = raw[match.start():match.start() + 120].split("\n")[0]
+                    problems.append(
+                        f"{rel}:{line}: argument label `{label}` in {func_name}(...) "
+                        f"is missing its colon: {snippet.strip()}"
+                    )
+    return problems
+
+
 def main() -> int:
     files = swift_files()
     if not files:
@@ -168,6 +212,7 @@ def main() -> int:
     problems += check_balance(files)
     problems += check_duplicate_types(files)
     problems += check_ios_version_apis(files)
+    problems += check_argument_labels(files)
 
     result = {
         "source_root": str(SOURCE_ROOT),

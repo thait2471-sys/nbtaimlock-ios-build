@@ -27,6 +27,14 @@ private extension View {
     }
 }
 
+/// An SF Symbol whose name is newer than the deployment target renders as a
+/// blank gap, not a compile error — the build stays green and the icon silently
+/// disappears on iOS 14. Resolve the preferred name at runtime and fall back to
+/// one that has shipped since iOS 13.
+func nbtSymbol(_ preferred: String, fallback: String) -> String {
+    UIImage(systemName: preferred) != nil ? preferred : fallback
+}
+
 public struct NativeAppView: View {
     @ObservedObject var core = NABATICore.shared
 
@@ -115,7 +123,7 @@ struct KeyVerificationView: View {
                 // Device Identity Card
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Image(systemName: "iphone.gen3")
+                        Image(systemName: nbtSymbol("iphone.gen3", fallback: "iphone"))
                             .foregroundColor(accent)
                         Text("THIẾT BỊ NHẬN DIỆN")
                             .font(.system(size: 12, weight: .bold))
@@ -348,8 +356,8 @@ struct ServiceGateOverlay: View {
 
     private var icon: String {
         switch core.gateMode {
-        case .connectionError: return "wifi.exclamationmark"
-        case .maintenance: return "wrench.and.screwdriver.fill"
+        case .connectionError: return nbtSymbol("wifi.exclamationmark", fallback: "wifi.slash")
+        case .maintenance: return nbtSymbol("wrench.and.screwdriver.fill", fallback: "wrench.fill")
         case .update: return "arrow.up.circle.fill"
         default: return "clock"
         }
@@ -670,7 +678,7 @@ struct AimlockDashboardView: View {
                     HStack(spacing: 10) {
                         Button(action: { core.applyRecommendedPreset() }) {
                             HStack(spacing: 6) {
-                                Image(systemName: "wand.and.stars")
+                                Image(systemName: nbtSymbol("wand.and.stars", fallback: "sparkles"))
                                 Text("GỢI Ý TỐI ƯU")
                                     .font(.system(size: 12, weight: .bold))
                             }
