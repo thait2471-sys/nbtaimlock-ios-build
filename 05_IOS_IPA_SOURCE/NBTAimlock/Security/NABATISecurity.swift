@@ -14,18 +14,21 @@ public final class NABATISecurity {
         public let isSecure: Bool
         public let warnings: [String]
 
-        /// Warnings that prove the bundle was modified by someone other than us,
-        /// rather than merely suggesting the device is unusual.
+        /// Warnings that mean code was injected into this process.
         ///
-        /// The distinction matters: jailbreak heuristics produce false positives
-        /// on ordinary carrier/enterprise setups, and locking a paying customer
-        /// out over a heuristic is worse than the tampering it guesses at. These
-        /// two cannot be produced by a normal install — the bundle identifier is
-        /// baked into the binary, and an unexpected loaded dylib means code was
-        /// injected into this process.
+        /// The distinction from the jailbreak heuristics above matters: those
+        /// produce false positives on ordinary devices, and locking a paying
+        /// customer out over a heuristic is worse than the tampering it guesses
+        /// at. An injected dylib, by contrast, cannot appear in an untouched
+        /// install.
+        ///
+        /// A changed bundle identifier is deliberately NOT in this list. A
+        /// customer who re-signs the IPA with their own certificate gets a
+        /// different identifier (ESign and Sideloadly both do this), and the
+        /// install guide tells them to enter that value in Admin — locking on it
+        /// would break exactly the install path we document.
         public var isTampered: Bool {
-            warnings.contains("REPACKAGED_BUNDLE_IDENTIFIER_MISMATCH")
-                || warnings.contains("RUNTIME_INJECTION_FRAMEWORKS_FOUND")
+            warnings.contains("RUNTIME_INJECTION_FRAMEWORKS_FOUND")
                 || warnings.contains("UNAUTHORIZED_RUNTIME_DYLIB_LOADED")
         }
     }
@@ -155,16 +158,35 @@ public final class NABATISecurity {
         return true
     }
 
+    /// Enforces an allowlist of loaded Mach-O images.
+    ///
+    /// Only images from the OS or from this app's own bundle are accepted. The
+    /// OS does not report every system library under `/usr/lib` or
+    /// `/System/Library`: since iOS 16 a large part of the OS ships in cryptexes
+    /// and dyld reports those absolute paths instead. Omitting them would flag a
+    /// stock, untouched iPhone as compromised, so they are allowed explicitly.
+    ///
+    /// `false` therefore means "an image from somewhere no legitimate install
+    /// loads from", which is the injection signal callers treat as tampering.
     public func checkRuntimeDylibAllowlist() -> Bool {
         let count = _dyld_image_count()
         guard let mainExec = Bundle.main.executablePath?.lowercased() else { return true }
+        let allowedPrefixes = [
+            "/system/library/",
+            "/usr/lib/",
+            "/developer/",
+            "/private/preboot/cryptexes/", // iOS 16+ system cryptex
+            "/system/cryptexes/"
+        ]
 
         for i in 0..<count {
             guard let rawName = _dyld_get_image_name(i) else { continue }
             let path = String(cString: rawName).lowercased()
-            if path.hasPrefix("/system/library/") || path.hasPrefix("/usr/lib/") || path.hasPrefix("/developer/") || path == mainExec {
-                continue
-            }
+            if path == mainExec { continue }
+            if allowedPrefixes.contains(where: { path.hasPrefix($0) }) { continue }
+            // Anything else — including an image loaded out of our own bundle —
+            // is an injection. This app ships no embedded frameworks, so a
+            // bundle-relative image is by definition not ours.
             return false
         }
         return true
@@ -179,8 +201,7 @@ public final class NABATISecurity {
     /// trusted to run unmodified — used to enforce (fail closed) on hard
     /// evidence while only warning on jailbreak heuristics.
     public func warningIsTampering(_ warning: String) -> Bool {
-        warning == "REPACKAGED_BUNDLE_IDENTIFIER_MISMATCH"
-            || warning == "RUNTIME_INJECTION_FRAMEWORKS_FOUND"
+        warning == "RUNTIME_INJECTION_FRAMEWORKS_FOUND"
             || warning == "UNAUTHORIZED_RUNTIME_DYLIB_LOADED"
     }
 
