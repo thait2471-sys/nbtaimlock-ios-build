@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 import Security
 import CryptoKit
 
@@ -11,14 +14,97 @@ public final class NABATICrypto {
     private let keySessionToken = "nbt_session_token_v4"
     private let keyActiveLicense = "nbt_active_license_v4"
 
+    /// Account names used by the previous Objective-C build. It shared our
+    /// keychain service but wrote different account names, so an upgrade from
+    /// that build otherwise reads an empty vault and looks like a new device.
+    enum LegacyAccount {
+        static let hardwareId = "nbt_hwid_v5"
+        static let sessionToken = "nbt_session_v5"
+        static let licenseKey = "nbt_key_v5"
+    }
+
     // MARK: - Hardware UUID Management
+    private let hardwareIdLock = NSLock()
+    private var cachedHardwareId: String?
+
+    /// Returns the identifier this device already registered with, and only mints
+    /// a new one when there genuinely is none to reuse.
+    ///
+    /// The order is chosen around one fact: every paying customer who exists
+    /// today registered through the previous Objective-C build, so the value the
+    /// server has bound is the one *that* build wrote. Any other order hands
+    /// those customers a new identity and burns a device slot — the exact lockout
+    /// this fixes.
+    ///
+    /// 1. `nbt_hwid_v5` (the previous build's account, same keychain service).
+    /// 2. `NSUserDefaults` under that name — the legacy build mirrored its ID
+    ///    there, and that store survives a re-sign that changes the keychain
+    ///    access group.
+    /// 3. This build's own account, for anyone who already registered with it.
+    /// 4. `identifierForVendor`, which is also what the legacy build used. It is
+    ///    keyed to (team, bundle-id) rather than to the keychain, so it is the
+    ///    only value that still resolves after a re-sign wipes the keychain.
+    /// 5. A random UUID, persisted for the next launch.
+    ///
+    /// Memoised because `NABATIDevice.hardwareId` is read while building every
+    /// verify and heartbeat request; resolving it each time would mean keychain
+    /// traffic on every network call.
     public func getOrCreateHardwareUUID() -> String {
+        hardwareIdLock.lock()
+        let cached = cachedHardwareId
+        hardwareIdLock.unlock()
+        if let cached = cached { return cached }
+
+        let resolved = resolveHardwareId()
+
+        hardwareIdLock.lock()
+        cachedHardwareId = resolved
+        hardwareIdLock.unlock()
+        return resolved
+    }
+
+    private func resolveHardwareId() -> String {
+        if let legacy = loadString(key: LegacyAccount.hardwareId), !legacy.isEmpty {
+            persistHardwareId(legacy)
+            return legacy
+        }
+        for legacyKey in [LegacyAccount.hardwareId, keyHardwareId] {
+            if let legacy = UserDefaults.standard.string(forKey: legacyKey), !legacy.isEmpty {
+                persistHardwareId(legacy)
+                return legacy
+            }
+        }
         if let existing = loadString(key: keyHardwareId), !existing.isEmpty {
+            persistHardwareId(existing)
             return existing
         }
+        #if canImport(UIKit)
+        if let vendor = UIDevice.current.identifierForVendor?.uuidString, !vendor.isEmpty {
+            let idfvBased = "NBT-IOS-" + vendor.uppercased()
+            persistHardwareId(idfvBased)
+            return idfvBased
+        }
+        #endif
         let newUUID = "NBT-IOS-" + UUID().uuidString.uppercased()
-        saveString(key: keyHardwareId, value: newUUID)
+        persistHardwareId(newUUID)
         return newUUID
+    }
+
+    /// Stores the device identity in both places on purpose.
+    ///
+    /// The keychain is the durable store, but it is scoped to the app's keychain
+    /// access group — and ESign/Sideloadly issue a *different* group when they
+    /// re-sign. Everything in the keychain disappears at that point, while
+    /// `NSUserDefaults` lives in the app container and is untouched. Writing the
+    /// identity here is what makes it survive a re-sign, which is precisely when
+    /// a customer must not be treated as a new device.
+    ///
+    /// Only the identifier is mirrored. Session tokens and license keys stay in
+    /// the keychain, so a re-sign costs the customer a re-entry of the KEY but
+    /// never a device slot.
+    private func persistHardwareId(_ value: String) {
+        UserDefaults.standard.set(value, forKey: keyHardwareId)
+        saveString(key: keyHardwareId, value: value)
     }
 
     // MARK: - Session Token Storage
@@ -27,11 +113,23 @@ public final class NABATICrypto {
     }
 
     public func getSessionToken() -> String? {
-        return loadString(key: keySessionToken)
+        if let token = loadString(key: keySessionToken), !token.isEmpty {
+            return token
+        }
+        if let legacy = loadString(key: LegacyAccount.sessionToken), !legacy.isEmpty {
+            saveString(key: keySessionToken, value: legacy)
+            return legacy
+        }
+        if let legacy = UserDefaults.standard.string(forKey: LegacyAccount.sessionToken), !legacy.isEmpty {
+            saveString(key: keySessionToken, value: legacy)
+            return legacy
+        }
+        return nil
     }
 
     public func clearSessionToken() {
         deleteKey(key: keySessionToken)
+        deleteKey(key: LegacyAccount.sessionToken)
     }
 
     // MARK: - Active License Storage
@@ -40,11 +138,23 @@ public final class NABATICrypto {
     }
 
     public func getActiveLicenseKey() -> String? {
-        return loadString(key: keyActiveLicense)
+        if let key = loadString(key: keyActiveLicense), !key.isEmpty {
+            return key
+        }
+        if let legacy = loadString(key: LegacyAccount.licenseKey), !legacy.isEmpty {
+            saveString(key: keyActiveLicense, value: legacy)
+            return legacy
+        }
+        if let legacy = UserDefaults.standard.string(forKey: LegacyAccount.licenseKey), !legacy.isEmpty {
+            saveString(key: keyActiveLicense, value: legacy)
+            return legacy
+        }
+        return nil
     }
 
     public func clearActiveLicenseKey() {
         deleteKey(key: keyActiveLicense)
+        deleteKey(key: LegacyAccount.licenseKey)
     }
 
     // MARK: - Generic Keychain Helpers
