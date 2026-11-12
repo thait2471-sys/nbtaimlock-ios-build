@@ -41,38 +41,6 @@
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>nbtaimlockshopcom.thait2471.workers.dev</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-				<false/>
-				<key>NSTemporaryExceptionMinimumTLSVersion</key>
-				<string>TLSv1.2</string>
-			</dict>
-			<key>nbtaimlockshopcom.pages.dev</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-			<key>resetkeymenuaimlock.pages.dev</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-			<key>soundhelix.com</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-			<key>youtube.com</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

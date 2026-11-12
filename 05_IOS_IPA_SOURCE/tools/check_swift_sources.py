@@ -271,6 +271,26 @@ def check_project_membership(files: list[Path], project_file: Path | None = None
     return problems
 
 
+def check_info_plist_hosts() -> list[str]:
+    """The bundle's Info.plist is plain to anyone who unzips the IPA.
+
+    An ATS `NSExceptionDomains` entry naming the Worker is a free hint for a
+    patcher, and HTTPS needs no exception at all — ATS already requires TLS 1.2.
+    """
+    plist = APP_DIR / "App" / "Info.plist"
+    if not plist.is_file():
+        return [f"{plist.name}: missing — the app cannot be built without it"]
+    text = plist.read_text(encoding="utf-8", errors="replace")
+    problems = []
+    for domain in ("workers.dev", "pages.dev"):
+        if domain in text:
+            problems.append(
+                f"Info.plist: '{domain}' appears in ATS exceptions — remove it, "
+                "HTTPS needs no exception and the IPA is trivially readable"
+            )
+    return problems
+
+
 def main() -> int:
     files = swift_files()
     if not files:
@@ -282,6 +302,7 @@ def main() -> int:
     problems += check_ios_version_apis(files)
     problems += check_argument_labels(files)
     problems += check_project_membership(files)
+    problems += check_info_plist_hosts()
 
     result = {
         "source_root": str(SOURCE_ROOT),
@@ -305,6 +326,7 @@ def main() -> int:
             print("  [PASS] no duplicate top-level type declarations")
             print("  [PASS] no unguarded iOS 15+ API in an iOS 14 target")
             print("  [PASS] every Swift file on disk is in the app target")
+            print("  [PASS] Info.plist names no Worker or Pages host")
             print("\nRESULT: SOURCE SANE")
     return 0 if not problems else 1
 
