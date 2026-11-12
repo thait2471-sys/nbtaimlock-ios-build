@@ -253,6 +253,26 @@ tool in `SKIP` rồi exit 0. Nay cài vào `build/venv` nên grammar thật sự
 - Chưa test cài/chạy trên iPhone thật (không có thiết bị trong phiên này).
 
 
+## 5.4 Kiểm tra hợp đồng API với máy chủ THẬT (chỉ đọc)
+
+`tools/check_live_contract.py` gọi các endpoint công khai của Worker production
+(`/api/config`, `/api/announcement`, `/api/sensitivity`, `/api/service-status`,
+`/api/legal?type=...`) bằng đúng header app gửi, rồi so schema với những gì
+app parse. Nó **không gửi KEY, deviceId hay sessionToken** — không có thao tác
+ghi, không đụng dữ liệu thật.
+
+```bash
+python3 05_IOS_IPA_SOURCE/tools/check_live_contract.py
+```
+
+Kết quả lần chạy 12/11/2026: **59/59 check PASS** — 8 feature id còn đủ, cả 4
+tài liệu pháp lý (`terms`, `privacy`, `about`, `guide`) đã xuất bản, presets độ
+nhạy có đủ `light/mid/heavy`. Dùng lại sau mỗi lần sửa Worker để biết app có
+lệch schema không. Script đọc host từ bảng obfuscation, nên không có host
+plaintext trong file.
+
+---
+
 ## 6. Ký bằng GitHub Actions (khuyến nghị cho bản phát hành)
 
 > **Đã thay đổi:** workflow ký cũ ký file IPA có sẵn trong repo. File đó là bản
