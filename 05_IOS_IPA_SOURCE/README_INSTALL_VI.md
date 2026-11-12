@@ -210,18 +210,26 @@ thay đổi chỉ qua kiểm tra tĩnh. Build thật chạy trên macOS runner q
 
 ### 5.3. Đã build thật bản 22 file Swift (12/11/2026)
 
-Workflow `build-ios.yml` chạy trên `macos-15`, commit `be8e568`, run
-[43214289005](https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43214289005).
-**16/16 bước PASS**, artifact `nbtaimlock-unsigned-ipa`.
+Workflow `build-ios.yml` chạy trên `macos-15`. Hai lần build liên tiếp đều
+**16/16 bước PASS**:
+
+1. commit `be8e568` / run
+   [43214289005](https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43214289005)
+   — bản đầu tiên biên dịch đủ 22 file Swift.
+2. commit `b288c82` / run
+   [43216671300](https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43216671300)
+   — bản đang lưu ở mục này, đã gỡ host khỏi `Info.plist`.
+
+Artifact tải về: `nbtaimlock-unsigned-ipa`.
 
 | Hạng mục | Kết quả |
 |---|---|
-| Dung lượng IPA | 5.676.236 bytes (bản ObjC cũ 2.030.355 bytes) |
-| SHA-256 | `d46edc745af2caf443705c37939e54374a9f17c515509974c94ad50c41ce5877` |
+| Dung lượng IPA | 5.676.020 bytes (bản ObjC cũ 2.030.355 bytes) |
+| SHA-256 | `eecc72c593a518968c486ed15e2d27faad1ae6b223713b268e5d11ed21fe77f2` |
 | `verify_unsigned_ipa.py` | PASS — `build: swift`, min iOS 14.0.0, Mach-O 1.010.392 bytes, 10 zip entry |
 | Assets | `Assets.car` + 2 icon prefix (`AppIcon60x60@2x`, `AppIcon76x76@2x~ipad`) |
 | Bundle | `com.nbtaimlock.ios` 4.2.0 (build 420), `CFBundleIconName=AppIcon` |
-| Endpoint trong binary | `/api/verify` = 0, `workers.dev` = 0 (đã XOR) |
+| Endpoint trong binary | `/api/verify`, `/api/heartbeat`, `/api/license/authorize` = 0; `workers.dev`, `pages.dev` = 0 (đã XOR) |
 | Symbol UI | `AimlockDashboardView`, `NABATIFeatureStore`, `NABATIAppIntegrity` có trong binary |
 
 **Lỗi biên dịch đầu tiên đã sửa:** `NABATIAppIntegrity.swift` dùng `KERN_PID` —
@@ -237,10 +245,11 @@ tool in `SKIP` rồi exit 0. Nay cài vào `build/venv` nên grammar thật sự
 - IPA này **chưa ký** — chỉ là đầu vào cho ESign/Sideloadly. Muốn bản cài trực
   tiếp phải chạy `sign-ios.yml` với chứng chỉ + provisioning profile.
 - **Chưa** deploy, **chưa** đưa lên trang `/ios/`, **chưa** phát hành.
-- `Info.plist` còn mục `NSExceptionDomains` chứa
-  `nbtaimlockshopcom.thait2471.workers.dev` — một gợi ý plaintext về host API
-  trong bundle. ATS không cần mục này cho HTTPS, nhưng gỡ nó nên được kiểm thử
-  trên máy thật trước khi phát hành.
+- `Info.plist` **không còn** `NSExceptionDomains`: ATS nay là mặc định chặn
+  (`NSAllowsArbitraryLoads=false`, không domain nào), nên bundle không còn manh
+  mối plaintext về host API. `check_swift_sources.py` fail nếu host quay lại.
+  Đổi này **chưa** được thử trên iPhone thật — cần kiểm tra đăng nhập KEY và tải
+  tài liệu pháp lý một lần trước khi phát hành.
 - Chưa test cài/chạy trên iPhone thật (không có thiết bị trong phiên này).
 
 

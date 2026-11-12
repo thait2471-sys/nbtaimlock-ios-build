@@ -1,0 +1,25 @@
+{
+  "total_count": 1,
+  "artifacts": [
+    {
+      "id": 13943393658,
+      "node_id": "MDg6QXJ0aWZhY3QxMzk0MzM5MzY1OA==",
+      "name": "nbtaimlock-unsigned-ipa",
+      "size_in_bytes": 5680507,
+      "url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/artifacts/13943393658",
+      "archive_download_url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/artifacts/13943393658/zip",
+      "expired": false,
+      "digest": "sha256:71ac8d36da1f9ac44f6217860b43c2e8c2fd146ad9dff4785ce3c724f240c443",
+      "created_at": "2026-11-12T12:19:49Z",
+      "updated_at": "2026-11-12T12:19:49Z",
+      "expires_at": "2026-11-26T12:19:48Z",
+      "workflow_run": {
+        "id": 43216671300,
+        "repository_id": 1452500413,
+        "head_repository_id": 1452500413,
+        "head_branch": "main",
+        "head_sha": "b288c82c118440028abb591628d4d27d36d94ea4"
+      }
+    }
+  ]
+}
