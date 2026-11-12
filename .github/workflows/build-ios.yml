@@ -69,10 +69,51 @@ jobs:
         run: |
           set -euo pipefail
           # Catches the failures that would otherwise only appear on the Mac:
-          # unbalanced braces, duplicated top-level declarations, and iOS-15 API
-          # used in a target that still deploys to iOS 14.
+          # unbalanced braces, duplicated top-level declarations, iOS-15 API used
+          # in a target that still deploys to iOS 14, and — the regression that
+          # shipped once — a Swift file that exists on disk but was never added
+          # to the app target's Sources phase, so it compiles nowhere.
           mkdir -p build
           python3 05_IOS_IPA_SOURCE/tools/check_swift_sources.py | tee build/swift_sources.txt
+
+      - name: Swift syntax parse
+        run: |
+          set -euo pipefail
+          # A real Swift grammar, not brace counting. The parser is an optional
+          # dependency: when PyPI is unreachable the tool prints SKIP and the
+          # build continues to the compiler, which is the final word anyway.
+          python3 -m pip install --quiet tree-sitter tree-sitter-swift || true
+          python3 05_IOS_IPA_SOURCE/tools/swift_syntax_check.py | tee build/swift_syntax.txt
+
+      - name: Obfuscation tables are current
+        run: |
+          set -euo pipefail
+          # The tables are generated. Shipping a stale table means the client
+          # decodes garbage for an endpoint, and the app fails at runtime with
+          # no compile error to warn anyone.
+          python3 05_IOS_IPA_SOURCE/tools/obfuscate_strings.py --check | tee build/obfuscation.txt
+
+      - name: Contract and regression tests
+        run: |
+          set -euo pipefail
+          # Static only, no network and no KEY: proves every endpoint the app
+          # calls exists on the Worker, the eight feature ids match
+          # DEFAULT_CONFIG, the response fields the client parses are still
+          # emitted, no button has an empty action, and the obfuscation tables
+          # are not stale.
+          python3 -m unittest discover -s 05_IOS_IPA_SOURCE/tests -q
+
+      - name: No plaintext Worker host in the binary
+        run: |
+          set -euo pipefail
+          # Every endpoint and the Worker host must come from the XOR tables.
+          # A literal reintroduced into a Swift file defeats the whole point,
+          # and a static scan for "workers.dev" is how a patcher finds it.
+          if grep -rn --include='*.swift' -E 'workers[.]dev|"/api/' 05_IOS_IPA_SOURCE/NBTAimlock | grep -v 'Obfuscation/NABATIObfuscationTables.swift' | grep -v '^[^:]*:[0-9]*: *///'; then
+            echo "SECURITY: plaintext endpoint or Worker host found in Swift sources" >&2
+            exit 1
+          fi
+          echo "No plaintext endpoint literals"
 
       - name: Build (unsigned)
         env:

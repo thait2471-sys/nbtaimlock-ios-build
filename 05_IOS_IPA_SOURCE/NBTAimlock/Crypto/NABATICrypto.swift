@@ -9,7 +9,7 @@ public final class NABATICrypto {
     public static let shared = NABATICrypto()
     private init() {}
 
-    private let serviceName = "com.nbtaimlock.ios.vault"
+    private let serviceName = NBTF.K.keychainService
     private let keyHardwareId = "nbt_secure_hwid_v4"
     private let keySessionToken = "nbt_session_token_v4"
     private let keyActiveLicense = "nbt_active_license_v4"

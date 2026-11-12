@@ -36,6 +36,13 @@ public final class NABATICore: ObservableObject {
                 startServerGuard()
             } else if !isAuthorized && wasAuthorized {
                 stopServerGuard()
+                // The web client's `resetAllFeaturesToOff()` runs on every lock:
+                // revocation, expiry, maintenance and unreachable-heartbeat
+                // lockouts all clear local feature state. The grants live in
+                // `NABATIFeatureAuthorization` and are only meaningful while
+                // a session is open, so dropping them here is what keeps a
+                // module from appearing "on" after the KEY behind it is gone.
+                NABATIFeatureStore.shared.resetAll()
             }
         }
     }
@@ -335,8 +342,11 @@ public final class NABATICore: ObservableObject {
     ///     at install time. Changing the IPA URL in Admin therefore takes effect
     ///     without rebuilding the app.
     ///   * anything else (TestFlight / App Store) — opened as-is.
-    private static let iosInstallManifestURL =
-        "https://nbtaimlockshopcom.thait2471.workers.dev/api/ios/install-manifest.plist"
+    private static var iosInstallManifestURL: String {
+        // Host and path both live in the XOR tables, so a static scan of the
+        // binary does not reveal the Worker origin.
+        NABATINetwork.shared.primaryBaseURL + NBTF.K.installManifestPath
+    }
 
     private static func otaInstallURL(manifestURL: String) -> URL? {
         let encoded = manifestURL.addingPercentEncoding(
@@ -392,6 +402,18 @@ public final class NABATICore: ObservableObject {
         // attacker a valid session token.
         let security = NABATISecurity.shared.checkSecurityEnvironment()
         if security.isTampered {
+            notificationFeedback.notificationOccurred(.error)
+            errorMessage = "Ứng dụng đã bị chỉnh sửa trái phép. Vui lòng cài lại bản chính thức từ cửa hàng."
+            appState = .locked
+            return
+        }
+
+        // Repackaged-IPA evidence: a flipped byte in `__TEXT`, or an image that
+        // is not mapped from the bundle on disk. Checked here rather than at
+        // launch so the refusal happens before the KEY is transmitted, and for
+        // the same reason as above — a patched binary cannot be trusted to
+        // honour the server's answer either.
+        if NABATIAppIntegrity.shared.inspect().blocksExecution {
             notificationFeedback.notificationOccurred(.error)
             errorMessage = "Ứng dụng đã bị chỉnh sửa trái phép. Vui lòng cài lại bản chính thức từ cửa hàng."
             appState = .locked

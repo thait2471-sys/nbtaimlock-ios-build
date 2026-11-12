@@ -99,7 +99,7 @@ public final class NABATIAuthentication {
             "osVersion": NABATIDevice.shared.systemVersion
         ]
 
-        NABATINetwork.shared.post(endpoint: "/api/verify", body: body) { result in
+        NABATINetwork.shared.post(endpoint: NBTF.K.apiVerify, body: body) { result in
             switch result {
             case .success(let json):
                 let success = json["success"] as? Bool ?? (json["valid"] as? Bool ?? false)
@@ -197,7 +197,7 @@ public final class NABATIAuthentication {
     }
 
     private func attemptHeartbeat(body: [String: Any], attempt: Int, completion: @escaping (NABATIHeartbeatOutcome) -> Void) {
-        NABATINetwork.shared.post(endpoint: "/api/heartbeat", body: body) { result in
+        NABATINetwork.shared.post(endpoint: NBTF.K.apiHeartbeat, body: body) { result in
             switch result {
             case .success(let json):
                 let valid = json["valid"] as? Bool ?? (json["success"] as? Bool ?? false)

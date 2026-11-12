@@ -48,7 +48,8 @@ public final class NABATINetwork {
     public static let shared = NABATINetwork()
     private init() {}
 
-    public let primaryBaseURL = "https://nbtaimlockshopcom.thait2471.workers.dev"
+    /// Decoded from the XOR table at runtime; see `NABATIObfuscation.swift`.
+    public let primaryBaseURL = NBTF.K.baseURL
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -65,7 +66,7 @@ public final class NABATINetwork {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("ios_ipa", forHTTPHeaderField: "X-Client-Platform")
+        request.setValue(NABATIAppVersion.clientPlatform, forHTTPHeaderField: "X-Client-Platform")
         request.setValue(NABATIAppVersion.version, forHTTPHeaderField: "X-App-Version")
         request.setValue(NABATIAppVersion.version, forHTTPHeaderField: "X-Client-Version")
         request.setValue(NABATIAppVersion.build, forHTTPHeaderField: "X-Client-Build")
@@ -176,5 +177,5 @@ public enum NABATIAppVersion {
     public static let version = "4.2.0"
     public static let build = "420"
     public static let platform = "ios"
-    public static let clientPlatform = "ios_ipa"
+    public static let clientPlatform = NBTF.K.clientPlatform
 }

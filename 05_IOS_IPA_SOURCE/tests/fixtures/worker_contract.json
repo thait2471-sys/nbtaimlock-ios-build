@@ -1,0 +1,109 @@
+{
+  "featureIds": [
+    "feat_aim_1",
+    "feat_aim_2",
+    "feat_aim_3",
+    "feat_aim_4",
+    "feat_dev_1",
+    "feat_dev_2",
+    "feat_dev_3",
+    "feat_dev_4"
+  ],
+  "legalDocFields": [
+    "title",
+    "content",
+    "contact",
+    "updated_label"
+  ],
+  "responseFields": {
+    "/api/announcement": [
+      "announcements"
+    ],
+    "/api/config": [
+      "features"
+    ],
+    "/api/legal": [
+      "found",
+      "doc",
+      "type"
+    ],
+    "/api/license/authorize": [
+      "featureId",
+      "nonce",
+      "expiresAt",
+      "signature"
+    ],
+    "/api/lockout-status": [
+      "isLockedOut",
+      "failedCount",
+      "remainingSeconds",
+      "maxAttempts"
+    ],
+    "/api/sensitivity": [
+      "presets",
+      "light",
+      "mid",
+      "heavy"
+    ]
+  },
+  "routes": [
+    "/admin",
+    "/admin.html",
+    "/admin/index.html",
+    "/api/admin/announcements",
+    "/api/admin/announcements/delete",
+    "/api/admin/announcements/update",
+    "/api/admin/app-version",
+    "/api/admin/audit-logs",
+    "/api/admin/config",
+    "/api/admin/config/reset",
+    "/api/admin/create-keys",
+    "/api/admin/delete-all-keys",
+    "/api/admin/delete-key",
+    "/api/admin/devices",
+    "/api/admin/keys",
+    "/api/admin/kill-switch",
+    "/api/admin/legal",
+    "/api/admin/login",
+    "/api/admin/logout",
+    "/api/admin/maintenance",
+    "/api/admin/releases",
+    "/api/admin/releases/update",
+    "/api/admin/remove-device",
+    "/api/admin/renew-key",
+    "/api/admin/reset-admin-device",
+    "/api/admin/reset-device",
+    "/api/admin/revoke-key",
+    "/api/admin/search",
+    "/api/admin/search-key",
+    "/api/admin/security-dashboard",
+    "/api/admin/sensitivity",
+    "/api/admin/sensitivity/delete",
+    "/api/admin/service-state",
+    "/api/admin/session",
+    "/api/admin/toggle-lock",
+    "/api/admin/update-key",
+    "/api/admin/update-max-devices",
+    "/api/admin/upload-music",
+    "/api/admin/upload-release",
+    "/api/admin/verify-logs",
+    "/api/announcement",
+    "/api/app-version",
+    "/api/config",
+    "/api/heartbeat",
+    "/api/ios/install-manifest.plist",
+    "/api/ios/unsigned-build",
+    "/api/legal",
+    "/api/license/authorize",
+    "/api/license/heartbeat",
+    "/api/lockout-status",
+    "/api/music.mp3",
+    "/api/sensitivity",
+    "/api/service-state",
+    "/api/service-status",
+    "/api/update-center",
+    "/api/verify",
+    "/api/verify-key",
+    "/ios/install-manifest.plist"
+  ]
+}

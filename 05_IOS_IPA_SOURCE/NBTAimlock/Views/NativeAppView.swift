@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Combine
 
 /// `.animation(_:value:)` only exists on iOS 15+, while this app targets iOS 14.
 /// Keep one call site so the availability branch lives in a single place.
@@ -16,7 +17,11 @@ private extension View {
 
 /// `SwitchToggleStyle(tint:)` is iOS 15+; on iOS 14 the switch follows
 /// `accentColor`. One wrapper keeps both paths compiling on a 14.0 target.
-private extension View {
+///
+/// Internal, not private: `AimlockDashboardView.swift` uses it on its module
+/// toggles, and a `private extension` is only visible inside the file that
+/// declares it.
+extension View {
     @ViewBuilder
     func nbtTint(_ color: Color) -> some View {
         if #available(iOS 15.0, *) {
@@ -81,8 +86,42 @@ struct KeyVerificationView: View {
     @ObservedObject var core = NABATICore.shared
     @State private var inputKey: String = ""
 
+    /// The server's brute-force state for this device. `nil` means "not known
+    /// yet" or "could not ask" — never "unlocked".
+    @State private var lockout: NABATILockoutState? = nil
+    @State private var lockoutDeadline: Date? = nil
+    /// Updated once a second while a lock is counting down, so the text
+    /// re-renders. A quiet tick that mutates nothing would leave the countdown
+    /// frozen on screen.
+    @State private var now: Date = Date()
+    /// One second tick only drives the countdown text; the deadline itself comes
+    /// from the server, so a backgrounded app cannot drift the unlock time.
+    @State private var ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    /// Which legal document the reader sheet is showing, if any.
+    @State private var legalSelection: NABATILegalSelection? = nil
+
     private var accent: Color { Color(red: 0/255, green: 243/255, blue: 255/255) }
     private var accentGreen: Color { Color(red: 0/255, green: 255/255, blue: 157/255) }
+    private var accentAmber: Color { Color(red: 255/255, green: 184/255, blue: 0/255) }
+
+    private var lockoutRemainingText: String {
+        guard let deadline = lockoutDeadline else { return lockout?.remainingText ?? "00:00" }
+        let seconds = max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func refreshLockoutStatus() {
+        NABATILockoutClient.fetch { state in
+            lockout = state
+            if let state = state, state.isLockedOut {
+                // At least one second, so a zero-second answer still schedules
+                // one re-check instead of freezing at "00:00".
+                lockoutDeadline = Date().addingTimeInterval(Double(max(1, state.remainingSeconds)))
+            } else {
+                lockoutDeadline = nil
+            }
+        }
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -228,6 +267,35 @@ struct KeyVerificationView: View {
                         .padding(.horizontal, 4)
                     }
 
+                    // Brute-force state straight from `/api/lockout-status`.
+                    if let state = lockout {
+                        if state.isLockedOut {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("🔒 THIẾT BỊ TẠM KHÓA")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundColor(accentAmber)
+                                Text(lockoutRemainingText)
+                                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                                    .foregroundColor(accentAmber)
+                                Text("Nhập sai quá nhiều lần. Vui lòng thử lại sau.")
+                                    .font(.system(size: 11.5))
+                                    .foregroundColor(.gray)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(accentAmber.opacity(0.1))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(accentAmber.opacity(0.3), lineWidth: 1))
+                        } else if state.failedCount > 0 {
+                            Text("⚠️ Còn \(state.attemptsLeft) lần thử trước khi thiết bị bị tạm khóa.")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(Color(red: 255/255, green: 184/255, blue: 0/255))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
                     // Unlock Button
                     Button(action: {
                         core.unlockWithKey(inputKey)
@@ -254,8 +322,8 @@ struct KeyVerificationView: View {
                         .cornerRadius(14)
                         .shadow(color: accent.opacity(0.4), radius: 8, y: 4)
                     }
-                    .disabled(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isVerifying || core.isGateBlocking)
-                    .opacity(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isGateBlocking ? 0.6 : 1.0)
+                    .disabled(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isVerifying || core.isGateBlocking || (lockout?.isLockedOut ?? false))
+                    .opacity(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isGateBlocking || (lockout?.isLockedOut ?? false) ? 0.6 : 1.0)
                 }
                 .padding(20)
                 .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.75))
@@ -276,8 +344,51 @@ struct KeyVerificationView: View {
                 }
                 .padding(.top, 10)
 
+                // Footer links — the same four documents the web client opens
+                // from its footer. The text lives in Admin (`/api/legal`), so
+                // editing a policy there updates the app without a new build.
+                VStack(spacing: 12) {
+                    HStack(spacing: 20) {
+                        legalLink("Giới thiệu", type: "about")
+                        legalLink("Hướng dẫn", type: "guide")
+                    }
+                    HStack(spacing: 20) {
+                        legalLink("Điều khoản sử dụng", type: "terms")
+                        legalLink("Chính sách bảo mật", type: "privacy")
+                    }
+                }
+                .padding(.top, 4)
+
                 Spacer(minLength: 40)
             }
+        }
+        .onAppear {
+            refreshLockoutStatus()
+        }
+        .onReceive(ticker) { tick in
+            guard lockoutDeadline != nil else { return }
+            now = tick
+            if let deadline = lockoutDeadline, deadline.timeIntervalSince(tick) <= 0 {
+                // The lock has elapsed; ask again rather than trusting the
+                // clock. If the server still refuses, the new deadline applies.
+                lockoutDeadline = nil
+                refreshLockoutStatus()
+            }
+        }
+        .onChange(of: core.errorMessage) { message in
+            if message != nil { refreshLockoutStatus() }
+        }
+        .sheet(item: $legalSelection) { selection in
+            LegalDocumentView(type: selection.id)
+        }
+    }
+
+    private func legalLink(_ title: String, type: String) -> some View {
+        Button(action: { legalSelection = NABATILegalSelection(id: type) }) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.5))
+                .underline()
         }
     }
 }
@@ -595,174 +706,6 @@ struct ServiceGateOverlay: View {
         formatter.locale = Locale(identifier: "vi_VN")
         formatter.dateFormat = "dd/MM/yyyy HH:mm"
         return formatter.string(from: Date(timeIntervalSince1970: value / 1000))
-    }
-}
-
-// MARK: - Screen 2: Aimlock Dashboard Screen
-struct AimlockDashboardView: View {
-    let session: NABATISessionInfo
-    @ObservedObject var core = NABATICore.shared
-
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                // Header License Status
-                VStack(spacing: 12) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("NABATI VIP DASHBOARD")
-                                .font(.system(size: 18, weight: .black, design: .rounded))
-                                .foregroundColor(.white)
-                            Text("Key: \(session.maskedKey) • \(session.planType)")
-                                .font(.system(size: 12))
-                                .foregroundColor(.gray)
-                        }
-                        Spacer()
-                        Text("\(session.remainingDays) NGÀY")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Color(red: 0/255, green: 255/255, blue: 157/255))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color(red: 0/255, green: 255/255, blue: 157/255).opacity(0.15))
-                            .cornerRadius(12)
-                    }
-
-                    HStack {
-                        Text("Thiết bị: \(NABATIDevice.shared.modelName)")
-                            .font(.system(size: 11))
-                            .foregroundColor(.gray)
-                        Spacer()
-                        Button(action: { core.logout() }) {
-                            Text("Đổi Key")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.red.opacity(0.8))
-                        }
-                    }
-                }
-                .padding(16)
-                .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.85))
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(red: 0/255, green: 243/255, blue: 255/255).opacity(0.3), lineWidth: 1))
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-
-                // Sensitivity preset card. Every control here is local: the
-                // numbers are stored on device and copied to the clipboard so
-                // the customer can enter them in Free Fire's own settings.
-                // Nothing here touches another app's memory or process.
-                VStack(spacing: 14) {
-                    HStack {
-                        Text("ĐỘ NHẠY GỢI Ý")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Picker("", selection: $core.selectedGameIndex) {
-                            Text("FF Thường").tag(0)
-                            Text("FF MAX").tag(1)
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
-                        .frame(width: 170)
-                    }
-
-                    Divider().background(Color.white.opacity(0.1))
-
-                    SensitivitySliderRow(label: "Nhìn Xung Quanh", value: $core.generalSensitivity)
-                    SensitivitySliderRow(label: "Red Dot Sight", value: $core.redDotSensitivity)
-                    SensitivitySliderRow(label: "Ống Ngắm 2x", value: $core.scope2xSensitivity)
-                    SensitivitySliderRow(label: "Ống Ngắm 4x", value: $core.scope4xSensitivity)
-
-                    Text("Nhập các giá trị này vào Cài đặt → Độ nhạy trong game. Ứng dụng không can thiệp vào bộ nhớ hay tiến trình của game.")
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.gray)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 10) {
-                        Button(action: { core.applyRecommendedPreset() }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: nbtSymbol("wand.and.stars", fallback: "sparkles"))
-                                Text("GỢI Ý TỐI ƯU")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(LinearGradient(
-                                colors: [Color(red: 255/255, green: 184/255, blue: 0/255), Color(red: 255/255, green: 107/255, blue: 0/255)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ))
-                            .cornerRadius(12)
-                        }
-
-                        Button(action: { core.copySensitivityPreset() }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "doc.on.doc.fill")
-                                Text("SAO CHÉP")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            .foregroundColor(Color(red: 0/255, green: 243/255, blue: 255/255))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color(red: 0/255, green: 243/255, blue: 255/255).opacity(0.14))
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 0/255, green: 243/255, blue: 255/255).opacity(0.4), lineWidth: 1))
-                        }
-                    }
-
-                    if let message = core.statusMessage {
-                        Text(message)
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(red: 0/255, green: 255/255, blue: 157/255))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(18)
-                .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.75))
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                .padding(.horizontal, 20)
-
-                // Game Launch Buttons
-                VStack(spacing: 10) {
-                    Button(action: { core.launchFreeFire() }) {
-                        HStack {
-                            Image(systemName: "gamecontroller.fill")
-                            Text("MỞ FREE FIRE THƯỜNG")
-                                .font(.system(size: 14, weight: .bold))
-                            Spacer()
-                            Image(systemName: "arrow.up.right.square")
-                        }
-                        .foregroundColor(.white)
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 18)
-                        .background(Color(red: 255/255, green: 59/255, blue: 48/255).opacity(0.85))
-                        .cornerRadius(12)
-                    }
-
-                    Button(action: { core.launchFreeFireMax() }) {
-                        HStack {
-                            Image(systemName: "flame.fill")
-                            Text("MỞ FREE FIRE MAX")
-                                .font(.system(size: 14, weight: .bold))
-                            Spacer()
-                            Image(systemName: "arrow.up.right.square")
-                        }
-                        .foregroundColor(.white)
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 18)
-                        .background(Color(red: 255/255, green: 149/255, blue: 0/255).opacity(0.85))
-                        .cornerRadius(12)
-                    }
-                }
-                .padding(.horizontal, 20)
-
-                Spacer(minLength: 40)
-            }
-        }
-        .onAppear {
-            // Revalidate the session with the server as soon as the dashboard shows.
-            core.revalidateSession()
-        }
     }
 }
 

@@ -18,6 +18,17 @@
 		AA00000C2CEE000100000001 /* NABATICrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000C2CEE000100000001 /* NABATICrypto.swift */; };
 		AA00000D2CEE000100000001 /* NABATIDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000D2CEE000100000001 /* NABATIDevice.swift */; };
 		AA00000E2CEE000100000001 /* NativeAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000E2CEE000100000001 /* NativeAppView.swift */; };
+		AA0000102CEE000100000001 /* NABATIFeatureAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000132CEE000100000001 /* NABATIFeatureAuthorization.swift */; };
+		AA0000112CEE000100000001 /* NABATIAppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000142CEE000100000001 /* NABATIAppConfig.swift */; };
+		AA0000122CEE000100000001 /* NABATIFeatureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000152CEE000100000001 /* NABATIFeatureStore.swift */; };
+		AA0000132CEE000100000001 /* NABATISensitivityLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000162CEE000100000001 /* NABATISensitivityLookup.swift */; };
+		AA0000142CEE000100000001 /* NABATIObfuscation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000172CEE000100000001 /* NABATIObfuscation.swift */; };
+		AA0000152CEE000100000001 /* NABATIObfuscationTables.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000182CEE000100000001 /* NABATIObfuscationTables.swift */; };
+		AA0000162CEE000100000001 /* NABATIAppIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000192CEE000100000001 /* NABATIAppIntegrity.swift */; };
+		AA0000172CEE000100000001 /* AimlockDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001A2CEE000100000001 /* AimlockDashboardView.swift */; };
+		AA0000182CEE000100000001 /* NABATIDeviceFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001B2CEE000100000001 /* NABATIDeviceFacts.swift */; };
+		AA0000192CEE000100000001 /* NABATILockout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001C2CEE000100000001 /* NABATILockout.swift */; };
+		AA00001B2CEE000100000001 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00001E2CEE000100000001 /* LegalDocumentView.swift */; };
 		AA00000F2CEE000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB00000F2CEE000100000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -37,6 +48,17 @@
 		AB0000102CEE000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB0000112CEE000100000001 /* Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Entitlements.plist; sourceTree = "<group>"; };
 		AB0000122CEE000100000001 /* NBTAimlock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NBTAimlock.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB0000132CEE000100000001 /* NABATIFeatureAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIFeatureAuthorization.swift; sourceTree = "<group>"; };
+		AB0000142CEE000100000001 /* NABATIAppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIAppConfig.swift; sourceTree = "<group>"; };
+		AB0000152CEE000100000001 /* NABATIFeatureStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIFeatureStore.swift; sourceTree = "<group>"; };
+		AB0000162CEE000100000001 /* NABATISensitivityLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATISensitivityLookup.swift; sourceTree = "<group>"; };
+		AB0000172CEE000100000001 /* NABATIObfuscation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIObfuscation.swift; sourceTree = "<group>"; };
+		AB0000182CEE000100000001 /* NABATIObfuscationTables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIObfuscationTables.swift; sourceTree = "<group>"; };
+		AB0000192CEE000100000001 /* NABATIAppIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIAppIntegrity.swift; sourceTree = "<group>"; };
+		AB00001A2CEE000100000001 /* AimlockDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimlockDashboardView.swift; sourceTree = "<group>"; };
+		AB00001B2CEE000100000001 /* NABATIDeviceFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATIDeviceFacts.swift; sourceTree = "<group>"; };
+		AB00001C2CEE000100000001 /* NABATILockout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NABATILockout.swift; sourceTree = "<group>"; };
+		AB00001E2CEE000100000001 /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,9 +80,11 @@
 				AC0000042CEE000100000001 /* Views */,
 				AC0000052CEE000100000001 /* Core */,
 				AC0000062CEE000100000001 /* Authentication */,
+				AC00000D2CEE000100000001 /* Config */,
 				AC0000072CEE000100000001 /* Network */,
 				AC0000082CEE000100000001 /* Networking */,
 				AC0000092CEE000100000001 /* Crypto */,
+				AC00000E2CEE000100000001 /* Obfuscation */,
 				AC00000A2CEE000100000001 /* Device */,
 				AC00000B2CEE000100000001 /* Security */,
 				AB00000F2CEE000100000001 /* Assets.xcassets */,
@@ -90,7 +114,9 @@
 		AC0000042CEE000100000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				AB00001A2CEE000100000001 /* AimlockDashboardView.swift */,
 				AB00000E2CEE000100000001 /* NativeAppView.swift */,
+				AB00001E2CEE000100000001 /* LegalDocumentView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -98,6 +124,8 @@
 		AC0000052CEE000100000001 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				AB0000152CEE000100000001 /* NABATIFeatureStore.swift */,
+				AB0000162CEE000100000001 /* NABATISensitivityLookup.swift */,
 				AB00000B2CEE000100000001 /* NABATICore.swift */,
 			);
 			path = Core;
@@ -106,6 +134,8 @@
 		AC0000062CEE000100000001 /* Authentication */ = {
 			isa = PBXGroup;
 			children = (
+				AB0000132CEE000100000001 /* NABATIFeatureAuthorization.swift */,
+				AB00001C2CEE000100000001 /* NABATILockout.swift */,
 				AB00000A2CEE000100000001 /* NABATIAuthentication.swift */,
 			);
 			path = Authentication;
@@ -138,6 +168,7 @@
 		AC00000A2CEE000100000001 /* Device */ = {
 			isa = PBXGroup;
 			children = (
+				AB00001B2CEE000100000001 /* NABATIDeviceFacts.swift */,
 				AB00000D2CEE000100000001 /* NABATIDevice.swift */,
 			);
 			path = Device;
@@ -146,9 +177,27 @@
 		AC00000B2CEE000100000001 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				AB0000192CEE000100000001 /* NABATIAppIntegrity.swift */,
 				AB0000062CEE000100000001 /* NABATISecurity.swift */,
 			);
 			path = Security;
+			sourceTree = "<group>";
+		};
+		AC00000D2CEE000100000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				AB0000142CEE000100000001 /* NABATIAppConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		AC00000E2CEE000100000001 /* Obfuscation */ = {
+			isa = PBXGroup;
+			children = (
+				AB0000172CEE000100000001 /* NABATIObfuscation.swift */,
+				AB0000182CEE000100000001 /* NABATIObfuscationTables.swift */,
+			);
+			path = Obfuscation;
 			sourceTree = "<group>";
 		};
 		AC00000C2CEE000100000001 /* Products */ = {
@@ -239,6 +288,17 @@
 				AA00000C2CEE000100000001 /* NABATICrypto.swift in Sources */,
 				AA00000D2CEE000100000001 /* NABATIDevice.swift in Sources */,
 				AA00000E2CEE000100000001 /* NativeAppView.swift in Sources */,
+				AA0000102CEE000100000001 /* NABATIFeatureAuthorization.swift in Sources */,
+				AA0000112CEE000100000001 /* NABATIAppConfig.swift in Sources */,
+				AA0000122CEE000100000001 /* NABATIFeatureStore.swift in Sources */,
+				AA0000132CEE000100000001 /* NABATISensitivityLookup.swift in Sources */,
+				AA0000142CEE000100000001 /* NABATIObfuscation.swift in Sources */,
+				AA0000152CEE000100000001 /* NABATIObfuscationTables.swift in Sources */,
+				AA0000162CEE000100000001 /* NABATIAppIntegrity.swift in Sources */,
+				AA0000172CEE000100000001 /* AimlockDashboardView.swift in Sources */,
+				AA0000182CEE000100000001 /* NABATIDeviceFacts.swift in Sources */,
+				AA0000192CEE000100000001 /* NABATILockout.swift in Sources */,
+				AA00001B2CEE000100000001 /* LegalDocumentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,12 +329,18 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEPLOYMENT_POSTPROCESSING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
 			name = Release;

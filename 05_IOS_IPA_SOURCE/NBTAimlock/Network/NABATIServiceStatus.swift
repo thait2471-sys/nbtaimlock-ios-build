@@ -126,7 +126,7 @@ public final class NABATIServiceClient {
     ///   callers never treat an unreachable server as "online" or "maintenance".
     public func fetchStatus(completion: @escaping (Result<NABATIServiceStatus, Error>) -> Void) {
         NABATINetwork.shared.get(
-            endpoint: "/api/service-status",
+            endpoint: NBTF.K.apiServiceStatus,
             query: [
                 "platform": NABATIAppVersion.platform,
                 "version": NABATIAppVersion.version,

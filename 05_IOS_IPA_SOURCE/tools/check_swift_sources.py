@@ -203,6 +203,74 @@ def check_argument_labels(files: list[Path]) -> list[str]:
     return problems
 
 
+PROJECT_FILE = APP_DIR / "NBTAimlock.xcodeproj" / "project.pbxproj"
+
+
+def check_project_membership(files: list[Path], project_file: Path | None = None) -> list[str]:
+    """Every `.swift` on disk must be a member of the app target's Sources phase.
+
+    This is the check that would have caught the shipped regression: nine files
+    existed, compiled nowhere, and the dashboard simply was not in the IPA. A
+    hand-written `project.pbxproj` has no directory sync, so a new file stays
+    invisible to the compiler until it is referenced *and* added to the build
+    phase. Both halves are verified here.
+    """
+    project_file = project_file or PROJECT_FILE
+    if not project_file.is_file():
+        try:
+            shown = project_file.relative_to(SOURCE_ROOT).as_posix()
+        except ValueError:
+            shown = str(project_file)
+        return [f"missing project file: {shown}"]
+
+    project = project_file.read_text(encoding="utf-8")
+
+    phase = re.search(
+        r"/\* Sources \*/ = \{[^}]*?isa = PBXSourcesBuildPhase;.*?files = \((.*?)\);",
+        project,
+        re.S,
+    )
+    if not phase:
+        return ["project.pbxproj: no PBXSourcesBuildPhase with a files list"]
+
+    build_file_ids = re.findall(r"([0-9A-F]{24})", phase.group(1))
+
+    build_to_ref: dict[str, str] = {}
+    for match in re.finditer(
+        r"([0-9A-F]{24}) /\* [^*]+? in Sources \*/ = \{isa = PBXBuildFile; fileRef = ([0-9A-F]{24})",
+        project,
+    ):
+        build_to_ref[match.group(1)] = match.group(2)
+
+    ref_paths: dict[str, str] = {}
+    for match in re.finditer(
+        r"([0-9A-F]{24}) /\* [^*]+? \*/ = \{isa = PBXFileReference;.*?path = ([^;]+?);",
+        project,
+        re.S,
+    ):
+        ref_paths[match.group(1)] = match.group(2).strip().strip('"')
+
+    compiled: set[str] = set()
+    problems: list[str] = []
+    for build_id in build_file_ids:
+        ref_id = build_to_ref.get(build_id)
+        if ref_id is None:
+            problems.append(f"project.pbxproj: build file {build_id} has no PBXBuildFile entry")
+            continue
+        path = ref_paths.get(ref_id)
+        if path is None:
+            problems.append(f"project.pbxproj: build file {build_id} points at missing fileRef {ref_id}")
+            continue
+        compiled.add(path.replace("\\", "/").split("/")[-1])
+
+    on_disk = {path.name for path in files}
+    for name in sorted(on_disk - compiled):
+        problems.append(f"{name}: on disk but not compiled — add it to the app target's Sources phase")
+    for name in sorted(compiled - on_disk):
+        problems.append(f"{name}: referenced by the app target but not on disk")
+    return problems
+
+
 def main() -> int:
     files = swift_files()
     if not files:
@@ -213,6 +281,7 @@ def main() -> int:
     problems += check_duplicate_types(files)
     problems += check_ios_version_apis(files)
     problems += check_argument_labels(files)
+    problems += check_project_membership(files)
 
     result = {
         "source_root": str(SOURCE_ROOT),
@@ -235,6 +304,7 @@ def main() -> int:
             print("  [PASS] braces/parentheses/brackets balanced")
             print("  [PASS] no duplicate top-level type declarations")
             print("  [PASS] no unguarded iOS 15+ API in an iOS 14 target")
+            print("  [PASS] every Swift file on disk is in the app target")
             print("\nRESULT: SOURCE SANE")
     return 0 if not problems else 1
 

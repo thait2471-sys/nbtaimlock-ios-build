@@ -21,30 +21,38 @@ không phải ở mã nguồn. Ba lỗi cấu trúc của bản IPA cũ đã đ�
 
 - Trang hướng dẫn: `https://nbtaimlockshopcom.thait2471.workers.dev/ios/`
 - File tải: `https://nbtaimlockshopcom.thait2471.workers.dev/nbtaimlock-release-unsigned.ipa`
-- Kích thước: **2.030.355 bytes**
-- SHA-256: `2e650423815947b0d3452fb110cacab1445d7fcd028e3a97f1b56c144da0dc74`
+- Kích thước: **3.009.908 bytes**
+- SHA-256: `d8a77fde8a56bc0a0739ab157506045a18bf4cb7466cdf23c83e976550f55085`
 - Bundle ID: `com.nbtaimlock.ios` · Version 4.2.0 (build 420) · MinimumOSVersion 14.0
+- Binary: **Swift thật** (`1.079.024` bytes, có `__swift5_proto`), không phải bản ObjC
 
-> **Lưu ý (12/11/2026):** file đang phục vụ trên `nbtaimlockshopcom` vẫn là bản
-> **Objective-C cũ**. Bản build Swift thật đã có trong `dist/` (mục 5.1) nhưng
-> **chưa deploy** — cần bạn đồng ý trước khi thay file đang phát hành.
+> **Đã deploy (12/11/2026):** file trên `nbtaimlockshopcom` nay là **bản Swift**
+> build từ `05_IOS_IPA_SOURCE/NBTAimlock/NBTAimlock.xcodeproj` bằng GitHub Actions
+> (`build-ios.yml`, runner `macos-15`) — xem mục 5.1. Bản Objective-C cũ
+> (2.030.355 bytes, SHA `2e650423…`) không còn được phục vụ; bản sao lưu nằm ở
+> `backups/ipa-release-20261112-054000/`.
+>
+> Metadata trên trang `/ios/` (dung lượng, SHA-256, version, build, bundle ID) được
+> đọc trực tiếp từ file đang phục vụ qua `/api/ios/unsigned-build`, nên không thể
+> lệch với file thật. Nút **Sao chép** đọc SHA-256 tại thời điểm bấm.
 
 Kiểm tra bằng cổng cấu trúc của repo:
 
 ```bash
-python3 tools/verify_unsigned_ipa.py --legacy-native dist/nbtaimlock-release-unsigned.ipa
+python3 tools/verify_unsigned_ipa.py dist/nbtaimlock-release-unsigned.ipa
 ```
 
-Kết quả: **PASS** — Mach-O arm64, 5 segment, 10 section, entry point khớp
-`LC_MAIN`, 21 zip entry, 3 tiền tố icon, không có `LC_CODE_SIGNATURE`, không có
-`_CodeSignature/`. Dòng `build : legacy-native` là đúng: IPA này đóng gói app
-native Objective-C (mục 10), không phải bản Swift.
+Kết quả: **PASS** — `build : swift`, Mach-O arm64, 5 segment, 34 section, entry
+point khớp `LC_MAIN`, 8 zip entry, 2 tiền tố icon, không có `LC_CODE_SIGNATURE`,
+không có `_CodeSignature/`. **Không** cần cờ `--legacy-native`: binary thật sự
+link Swift runtime và có `__swift5_proto`.
 
-> `--legacy-native` **không** phải cờ bỏ qua kiểm tra. Nó bật một phép so khớp
-> danh tính chặt: binary phải link đúng 5 system dylib, không có Swift runtime,
-> không có `__swift5_*`, chứa đủ marker `NABATIMainViewController` /
-> `AppDelegate` / `SceneDelegate` / `/api/license/authorize` / `/api/heartbeat`,
-> và `LC_BUILD_VERSION` minos đúng `14.0.0`. Một binary lạ vẫn bị từ chối.
+> Cờ `--legacy-native` chỉ dùng cho bản Objective-C cũ, và **không** phải cờ bỏ
+> qua kiểm tra. Nó bật một phép so khớp danh tính chặt: binary phải link đúng 5
+> system dylib, không có Swift runtime, không có `__swift5_*`, chứa đủ marker
+> `NABATIMainViewController` / `AppDelegate` / `SceneDelegate` /
+> `/api/license/authorize` / `/api/heartbeat`, và `LC_BUILD_VERSION` minos đúng
+> `14.0.0`. Một binary lạ vẫn bị từ chối.
 
 ## 2.1. KEY hợp lệ cho iOS
 
@@ -95,21 +103,22 @@ Lần build macOS đầu tiên đã lộ ra lỗi cú pháp thật trong source
 (`NABATICrypto.swift:101` viết `with ""` thiếu dấu `:` → `expected ',' separator`).
 Điều này xác nhận source Swift trước đó **chưa từng được biên dịch**. Sau khi sửa:
 
-- Binary: `1.075.224` bytes — `MH_MAGIC_64`, arm64, `MH_EXECUTE`, minos `14.0.0`
+- Binary: `1.079.024` bytes — `MH_MAGIC_64`, arm64, `MH_EXECUTE`, minos `14.0.0`
 - `__swift5_proto` / `__swift5_types` / `__swift5_fieldmd` / `__swift5_entry`: có đủ
 - `LC_CODE_SIGNATURE`: **không có** (unsigned đúng như thiết kế)
 - `_CodeSignature/` · `embedded.mobileprovision` · `SC_Info`: **không có**
 - 5 marker của app Objective-C cũ (`NABATIMainViewController`, `nbt_hwid_v5`,
   `nbt_key_v5`, `_apply_locked_ui`, `/api/license/authorize`): **tất cả vắng mặt**
-- SHA-256 IPA: `404ac1c4c37198776a6ba8112c0aec2cd3d45f187b53ea9656f2b159082318c7`
+- SHA-256 IPA: `d8a77fde8a56bc0a0739ab157506045a18bf4cb7466cdf23c83e976550f55085`
+  (**đây là bản đang phục vụ trên production** — 3.009.444 bytes)
 
 Cổng `verify_unsigned_ipa.py` in `build : swift` và **PASS** — không cần cờ
 `--legacy-native`. Bản này đã gồm bộ bảo vệ liên tục (heartbeat 20 giây +
 watchdog hạn 1 giây) và chặn cứng khi phát hiện app bị chỉnh sửa.
 
-#### Ba lỗi khóa-oan / mất dữ liệu đã sửa trong bản này
+#### Bốn lỗi khóa-oan / mất dữ liệu đã sửa trong bản này
 
-Cả ba đều xảy ra với khách trả tiền mà không có lỗi gì từ phía họ (hai lỗi
+Cả bốn đều xảy ra với khách trả tiền mà không có lỗi gì từ phía họ (hai lỗi
 đầu bắn trên iPhone hoàn toàn nguyên bản):
 
 1. **Đổi bundle ID bị coi là "app bị chỉnh sửa".** ESign và Sideloadly đều đổi
@@ -125,6 +134,29 @@ Cả ba đều xảy ra với khách trả tiền mà không có lỗi gì từ 
    gọi `resetPresetToDefault()` khi máy chủ bảo trì hoặc khi đủ 3 lần mất kết nối —
    khóa phiên là đúng nhưng đồng thời xóa luôn bộ độ nhạy khách đã chỉnh và lưu
    xuống UserDefaults. Nay chỉ khóa phiên, giữ nguyên dữ liệu khách.
+4. **Đổi thiết bị oan sau khi ký lại / nâng cấp (HWID).** Bản Objective-C cũ và
+   bản Swift dùng **cùng** keychain service `com.nbtaimlock.ios.vault` nhưng
+   **khác tên account** (`nbt_hwid_v5` so với `nbt_secure_hwid_v4`), và bản Swift
+   lại không đọc `NSUserDefaults`. Hệ quả: khách nâng cấp từ bản cũ — kể cả khi
+   **không** ký lại — đọc thấy vault rỗng nên sinh HWID mới; nếu KEY đã chạm trần
+   thiết bị thì bị `KEY_DA_GAN_THIET_BI` dù máy hoàn toàn nguyên bản. ESign /
+   Sideloadly còn làm nặng thêm: chúng cấp **keychain access group khác** nên mọi
+   item trong Keychain biến mất sau khi ký lại.
+
+   Nay `getOrCreateHardwareUUID()` đọc theo thứ tự **ưu tiên giữ nguyên danh tính**:
+   account cũ `nbt_hwid_v5` → bản sao trong `NSUserDefaults` → account của bản này
+   → `identifierForVendor` (gắn với team + bundle ID, không phụ thuộc keychain nên
+   sống sót qua ký lại) → UUID ngẫu nhiên. Danh tính sau khi giải được **ghi lại
+   vào `NSUserDefaults`**, nơi ESign không xóa được, nên lần ký lại sau vẫn giữ
+   nguyên thiết bị. Session token và KEY cũng đọc được từ account cũ, nên nâng
+   cấp không bắt khách nhập lại KEY.
+
+   Phía máy chủ **không đổi**: vẫn cùng cơ chế gắn thiết bị, cùng giới hạn, cùng
+   mã lỗi. Chỉ client thôi trình một danh tính mới cho một thiết bị cũ.
+
+   Kèm theo: khi bị chặn vì giới hạn thiết bị, app nay nói rõ cách xử lý
+   (Admin → tab Keys → mở KEY → **📱 Gỡ 1 thiết bị**) và in ra HWID của chính máy
+   để hỗ trợ đối chiếu. Trước đây khách chỉ thấy câu báo lỗi chung, không có lối ra.
 
 Bằng chứng inject dylib (`RUNTIME_INJECTION_FRAMEWORKS_FOUND`,
 `UNAUTHORIZED_RUNTIME_DYLIB_LOADED`) **vẫn chặn cứng** như trước.
@@ -132,6 +164,49 @@ Bằng chứng inject dylib (`RUNTIME_INJECTION_FRAMEWORKS_FOUND`,
 > Nếu gặp `The configuration 'macos-14-arm64-us-default' is not supported`:
 > tài khoản GitHub free không được cấp runner `macos-14`. Dùng `macos-15`
 > (đã kiểm thử: `macos-15` và `macos-latest` chạy được, `macos-14` bị từ chối).
+
+### 5.2. Bổ sung đầy đủ chức năng web vào bản source (chưa build lại)
+
+> **Trạng thái:** source đã hoàn chỉnh và qua các cổng kiểm tra tĩnh, **chưa**
+> build IPA mới và **chưa** phát hành. Bản đang phục vụ trên production vẫn là
+> bản ghi ở mục 5.1.
+
+**Nguyên nhân mất giao diện "hỗ trợ kéo tâm":** `project.pbxproj` được viết tay,
+không dùng `PBXFileSystemSynchronizedRootGroup`, và **9 file `.swift` có trên đĩa
+nhưng không nằm trong app target** — Xcode bỏ qua hoàn toàn nên không biên dịch.
+Toàn bộ màn hình dashboard, các module và phần lớn lớp mạng không có trong binary.
+Đã thêm đủ 9 file; target nay biên dịch **22/22** file Swift.
+
+Để lỗi này không tái diễn, `tools/check_swift_sources.py` đọc thẳng pbxproj và
+**FAIL** nếu có file trên đĩa không được biên dịch (hoặc ngược lại). Cổng này
+chạy trong CI trước bước build, kèm 4 unit test cho chính nó. CI còn chạy `tools/swift_syntax_check.py` — parser Swift thật (tree-sitter), bắt lỗi cú pháp mà đếm ngoặc không thấy; hiện **22/22 file parse sạch**. Toàn bộ suite hiện có **41 test**, trong đó `tests/test_api_contract.py` đối chiếu source với `worker.js`: mọi endpoint app gọi đều tồn tại, 8 mã chức năng khớp `DEFAULT_CONFIG`, các field phản hồi mà client parse vẫn được Worker trả về, và không có `Button` nào rỗng.
+
+**Chức năng đã đưa vào để ngang hàng web:**
+
+| Nhóm | Nội dung |
+|---|---|
+| Dashboard 4 tab | AIMLOCK · TỐI ƯU MÁY · ĐỘ NHẠY · KEY, đúng cấu trúc và copy của `public/index.html` |
+| 8 module | feat_aim_1..4 + feat_dev_1..4, mỗi công tắc gọi `/api/license/authorize` (máy chủ quyết định) |
+| Preset | Tiết kiệm pin / Cân bằng / Hiệu năng / Tùy chỉnh, kèm mô tả như web |
+| Độ nhạy theo máy | `/api/sensitivity`, 3 mức, gợi ý dòng máy khi không tìm thấy, nút sao chép |
+| Khóa thiết bị | `/api/lockout-status`: hiện số lần thử còn lại và đếm ngược từ mốc máy chủ |
+| Tài liệu pháp lý | `/api/legal`: Giới thiệu · Hướng dẫn · Điều khoản · Bảo mật, đọc trong app |
+| Thông báo | `/api/announcement` chạy chữ trên dashboard |
+| Chào mừng | Hộp thoại sau khi mở khóa, có nút "Ẩn 2 giờ" (lưu UserDefaults) như web |
+
+**Mã hóa / chống crack:**
+
+- 13 chuỗi nhạy cảm (mọi endpoint, base URL, keychain service, platform) được
+  XOR bằng keystream SHA-256, sinh vào `NABATIObfuscationTables.swift`; CI fail
+  nếu bảng lệch với `tools/obfuscate_strings.py --check`.
+- CI fail nếu còn `workers.dev` hoặc `"/api/` dạng plaintext trong source.
+- Release config bật `COPY_PHASE_STRIP`, `DEPLOYMENT_POSTPROCESSING`,
+  `STRIP_INSTALLED_PRODUCT`, `GCC_SYMBOLS_PRIVATE_EXTERN`, tắt testability.
+- Kiểm tra jailbreak / inject dylib / debugger vẫn chặn cứng như bản 5.1.
+
+**Lưu ý:** không có toolchain Swift trên máy Windows, nên các thay đổi này mới
+qua kiểm tra tĩnh (cân bằng ngoặc, trùng type, API iOS 15 trong target 14.0,
+thành viên target). Bước build thật cần chạy workflow `build-ios.yml`.
 
 
 ## 6. Ký bằng GitHub Actions (khuyến nghị cho bản phát hành)
@@ -333,15 +408,15 @@ bạn (hoặc chạy workflow GitHub Actions ở mục 6).
 
 ## 10. Ghi chú kỹ thuật về hai nhánh mã nguồn
 
-- **Binary đang đóng trong IPA (bản đang phát hành trên server)**: app native viết tay bằng C + Objective-C runtime
-  (`scratch/nabati_ios_native_v2.c`), 87.280 bytes (bản unsigned đóng trong IPA; 88.736 bytes là bản còn chữ ký ad-hoc cũ), chỉ làm đúng hai việc: nhập KEY,
-  xác thực với máy chủ (`/api/verify`), heartbeat 45 giây (`/api/heartbeat`), lưu
-  session trong Keychain. Không có tính năng can thiệp game.
-  Binary này **không** link Swift runtime, nên mọi cổng kiểm tra phải chạy kèm
-  `--legacy-native` (mục 2 và mục 8). Đây là lý do trước đây bản IPA đã sửa vẫn bị
-  chính cổng của repo chặn: cổng chỉ chấp nhận bản Swift.
-- **Swift source** trong `05_IOS_IPA_SOURCE/NBTAimlock/`: UI SwiftUI đầy đủ hơn, cần
-  build bằng workflow `build-ios.yml` mới thành app. Các toggle “Aimlock / Recoil /
-  Anti-Cheat” giả đã được **loại bỏ**; phần thay thế là bộ **độ nhạy gợi ý** lưu cục bộ
-  và sao chép vào clipboard để người dùng tự nhập trong Cài đặt của game.
-  Bản Swift đã build được (mục 5.1) và nằm ở `dist/`, **chưa deploy**.
+- **Binary đang đóng trong IPA đang phát hành trên server**: **bản Swift** (xem
+  mục 5.1). Bản Objective-C cũ (`scratch/nabati_ios_native_v2.c`, 87.280 bytes)
+  không còn được phục vụ và chỉ còn giá trị tham khảo: nó chỉ làm đúng hai việc —
+  nhập KEY, xác thực với máy chủ (`/api/verify`), heartbeat 45 giây
+  (`/api/heartbeat`), lưu session trong Keychain. Không có tính năng can thiệp game.
+  Binary đó **không** link Swift runtime, nên nếu ai đóng gói lại nó thì mọi cổng
+  kiểm tra phải chạy kèm `--legacy-native` (mục 8).
+- **Swift source** trong `05_IOS_IPA_SOURCE/NBTAimlock/`: UI SwiftUI đầy đủ hơn,
+  build bằng workflow `build-ios.yml`. Các toggle “Aimlock / Recoil / Anti-Cheat”
+  giả đã được **loại bỏ**; phần thay thế là bộ **độ nhạy gợi ý** lưu cục bộ và sao
+  chép vào clipboard để người dùng tự nhập trong Cài đặt của game.
+  Bản Swift đã build (mục 5.1) và **đang phục vụ trên production**.
