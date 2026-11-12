@@ -165,11 +165,10 @@ Bằng chứng inject dylib (`RUNTIME_INJECTION_FRAMEWORKS_FOUND`,
 > tài khoản GitHub free không được cấp runner `macos-14`. Dùng `macos-15`
 > (đã kiểm thử: `macos-15` và `macos-latest` chạy được, `macos-14` bị từ chối).
 
-### 5.2. Bổ sung đầy đủ chức năng web vào bản source (chưa build lại)
+### 5.2. Bổ sung đầy đủ chức năng web vào bản source
 
-> **Trạng thái:** source đã hoàn chỉnh và qua các cổng kiểm tra tĩnh, **chưa**
-> build IPA mới và **chưa** phát hành. Bản đang phục vụ trên production vẫn là
-> bản ghi ở mục 5.1.
+> **Trạng thái:** source đã hoàn chỉnh, đã build thật thành công — xem mục 5.3.
+> Bản IPA mới **chưa** được ký, **chưa** phát hành; production vẫn là bản 5.1.
 
 **Nguyên nhân mất giao diện "hỗ trợ kéo tâm":** `project.pbxproj` được viết tay,
 không dùng `PBXFileSystemSynchronizedRootGroup`, và **9 file `.swift` có trên đĩa
@@ -179,7 +178,7 @@ Toàn bộ màn hình dashboard, các module và phần lớn lớp mạng khôn
 
 Để lỗi này không tái diễn, `tools/check_swift_sources.py` đọc thẳng pbxproj và
 **FAIL** nếu có file trên đĩa không được biên dịch (hoặc ngược lại). Cổng này
-chạy trong CI trước bước build, kèm 4 unit test cho chính nó. CI còn chạy `tools/swift_syntax_check.py` — parser Swift thật (tree-sitter), bắt lỗi cú pháp mà đếm ngoặc không thấy; hiện **22/22 file parse sạch**. Toàn bộ suite hiện có **41 test**, trong đó `tests/test_api_contract.py` đối chiếu source với `worker.js`: mọi endpoint app gọi đều tồn tại, 8 mã chức năng khớp `DEFAULT_CONFIG`, các field phản hồi mà client parse vẫn được Worker trả về, và không có `Button` nào rỗng.
+chạy trong CI trước bước build, kèm 4 unit test cho chính nó. CI còn chạy `tools/swift_syntax_check.py` — parser Swift thật (tree-sitter), bắt lỗi cú pháp mà đếm ngoặc không thấy; hiện **22/22 file parse sạch**. Toàn bộ suite hiện có **40 test** ở workspace đầy đủ (16 test chạy được trong repo chỉ chứa source iOS, 2 test bỏ qua vì thiếu fixture IPA và `worker.js`), trong đó `tests/test_api_contract.py` đối chiếu source với `worker.js`: mọi endpoint app gọi đều tồn tại, 8 mã chức năng khớp `DEFAULT_CONFIG`, các field phản hồi mà client parse vẫn được Worker trả về, và không có `Button` nào rỗng.
 
 **Chức năng đã đưa vào để ngang hàng web:**
 
@@ -204,9 +203,45 @@ chạy trong CI trước bước build, kèm 4 unit test cho chính nó. CI còn
   `STRIP_INSTALLED_PRODUCT`, `GCC_SYMBOLS_PRIVATE_EXTERN`, tắt testability.
 - Kiểm tra jailbreak / inject dylib / debugger vẫn chặn cứng như bản 5.1.
 
-**Lưu ý:** không có toolchain Swift trên máy Windows, nên các thay đổi này mới
-qua kiểm tra tĩnh (cân bằng ngoặc, trùng type, API iOS 15 trong target 14.0,
-thành viên target). Bước build thật cần chạy workflow `build-ios.yml`.
+**Lưu ý:** không có toolchain Swift trên máy Windows, nên trước mục 5.3 các
+thay đổi chỉ qua kiểm tra tĩnh. Build thật chạy trên macOS runner qua workflow
+`build-ios.yml`.
+
+
+### 5.3. Đã build thật bản 22 file Swift (12/11/2026)
+
+Workflow `build-ios.yml` chạy trên `macos-15`, commit `be8e568`, run
+[43214289005](https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43214289005).
+**16/16 bước PASS**, artifact `nbtaimlock-unsigned-ipa`.
+
+| Hạng mục | Kết quả |
+|---|---|
+| Dung lượng IPA | 5.676.236 bytes (bản ObjC cũ 2.030.355 bytes) |
+| SHA-256 | `d46edc745af2caf443705c37939e54374a9f17c515509974c94ad50c41ce5877` |
+| `verify_unsigned_ipa.py` | PASS — `build: swift`, min iOS 14.0.0, Mach-O 1.010.392 bytes, 10 zip entry |
+| Assets | `Assets.car` + 2 icon prefix (`AppIcon60x60@2x`, `AppIcon76x76@2x~ipad`) |
+| Bundle | `com.nbtaimlock.ios` 4.2.0 (build 420), `CFBundleIconName=AppIcon` |
+| Endpoint trong binary | `/api/verify` = 0, `workers.dev` = 0 (đã XOR) |
+| Symbol UI | `AimlockDashboardView`, `NABATIFeatureStore`, `NABATIAppIntegrity` có trong binary |
+
+**Lỗi biên dịch đầu tiên đã sửa:** `NABATIAppIntegrity.swift` dùng `KERN_PID` —
+hằng số Darwin không tồn tại. Lần build đầu fail đúng chỗ này; đổi sang
+`KERN_PROC_PID` (mib `CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()`).
+
+**Cổng CI bị "pass giả" đã sửa:** bước `Swift syntax parse` chạy `pip install`
+trên python3 của runner macOS (PEP 668 — externally managed), pip từ chối cài,
+tool in `SKIP` rồi exit 0. Nay cài vào `build/venv` nên grammar thật sự chạy.
+
+**Chưa làm (cần bạn quyết định):**
+
+- IPA này **chưa ký** — chỉ là đầu vào cho ESign/Sideloadly. Muốn bản cài trực
+  tiếp phải chạy `sign-ios.yml` với chứng chỉ + provisioning profile.
+- **Chưa** deploy, **chưa** đưa lên trang `/ios/`, **chưa** phát hành.
+- `Info.plist` còn mục `NSExceptionDomains` chứa
+  `nbtaimlockshopcom.thait2471.workers.dev` — một gợi ý plaintext về host API
+  trong bundle. ATS không cần mục này cho HTTPS, nhưng gỡ nó nên được kiểm thử
+  trên máy thật trước khi phát hành.
+- Chưa test cài/chạy trên iPhone thật (không có thiết bị trong phiên này).
 
 
 ## 6. Ký bằng GitHub Actions (khuyến nghị cho bản phát hành)
