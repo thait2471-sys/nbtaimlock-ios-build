@@ -19,3 +19,6 @@ runs*.json
 job_logs.zip
 run_logs.zip
 .*.json
+
+# Local pre-change snapshots
+backups/
