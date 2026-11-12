@@ -18,3 +18,4 @@ dispatch*.json
 runs*.json
 job_logs.zip
 run_logs.zip
+.*.json
