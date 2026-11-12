@@ -6,3 +6,15 @@ DerivedData/
 *.keystore
 .DS_Store
 __pycache__/
+
+# Temporary GitHub API responses used while polling a build
+build_*.json
+*_jobs.json
+*_runs.json
+jobs*.json
+arts.json
+run*.json
+dispatch*.json
+runs*.json
+job_logs.zip
+run_logs.zip
