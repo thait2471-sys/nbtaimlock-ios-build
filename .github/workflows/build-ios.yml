@@ -82,8 +82,11 @@ jobs:
           # A real Swift grammar, not brace counting. The parser is an optional
           # dependency: when PyPI is unreachable the tool prints SKIP and the
           # build continues to the compiler, which is the final word anyway.
-          python3 -m pip install --quiet tree-sitter tree-sitter-swift || true
-          python3 05_IOS_IPA_SOURCE/tools/swift_syntax_check.py | tee build/swift_syntax.txt
+          # The runner's python3 is PEP 668 "externally managed", so a plain
+          # `pip install` exits with an error and the gate would silently skip.
+          python3 -m venv build/venv
+          build/venv/bin/pip install --quiet --disable-pip-version-check             tree-sitter tree-sitter-swift || true
+          build/venv/bin/python 05_IOS_IPA_SOURCE/tools/swift_syntax_check.py             | tee build/swift_syntax.txt
 
       - name: Obfuscation tables are current
         run: |

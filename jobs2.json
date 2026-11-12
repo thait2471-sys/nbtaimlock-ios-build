@@ -1,0 +1,206 @@
+{
+  "total_count": 2,
+  "jobs": [
+    {
+      "id": 131155719348,
+      "run_id": 43210250404,
+      "workflow_name": "Build iOS IPA (unsigned)",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/runs/43210250404",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVpNlvc8AAAAeiX10tA",
+      "head_sha": "91db4b65a0921769e081fd001579c80b95ec3972",
+      "url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/jobs/131155719348",
+      "html_url": "https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43210250404/job/131155719348",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-11-12T11:34:02Z",
+      "started_at": "2026-11-12T11:34:02Z",
+      "completed_at": "2026-11-12T11:49:04Z",
+      "name": "build",
+      "steps": [
+
+      ],
+      "check_run_url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/check-runs/131155719348",
+      "labels": [
+        "macos-15"
+      ],
+      "runner_id": 0,
+      "runner_name": "",
+      "runner_group_id": 0,
+      "runner_group_name": ""
+    },
+    {
+      "id": 131165962609,
+      "run_id": 43210250404,
+      "workflow_name": "Build iOS IPA (unsigned)",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/runs/43210250404",
+      "run_attempt": 2,
+      "node_id": "CR_kwDOVpNlvc8AAAAeihnBcQ",
+      "head_sha": "91db4b65a0921769e081fd001579c80b95ec3972",
+      "url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/actions/jobs/131165962609",
+      "html_url": "https://github.com/thait2471-sys/nbtaimlock-ios-build/actions/runs/43210250404/job/131165962609",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-12T11:55:09Z",
+      "started_at": "2026-11-12T11:55:12Z",
+      "completed_at": "2026-11-12T11:55:49Z",
+      "name": "build",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-12T11:55:13Z",
+          "completed_at": "2026-11-12T11:55:16Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-12T11:55:16Z",
+          "completed_at": "2026-11-12T11:55:18Z"
+        },
+        {
+          "name": "Select Xcode",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-12T11:55:18Z",
+          "completed_at": "2026-11-12T11:55:18Z"
+        },
+        {
+          "name": "Show available SDKs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-12T11:55:18Z",
+          "completed_at": "2026-11-12T11:55:18Z"
+        },
+        {
+          "name": "Assert project inputs exist",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-12T11:55:18Z",
+          "completed_at": "2026-11-12T11:55:19Z"
+        },
+        {
+          "name": "Static Swift source sanity",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-12T11:55:19Z",
+          "completed_at": "2026-11-12T11:55:19Z"
+        },
+        {
+          "name": "Swift syntax parse",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-12T11:55:19Z",
+          "completed_at": "2026-11-12T11:55:21Z"
+        },
+        {
+          "name": "Obfuscation tables are current",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-12T11:55:21Z",
+          "completed_at": "2026-11-12T11:55:21Z"
+        },
+        {
+          "name": "Contract and regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-12T11:55:21Z",
+          "completed_at": "2026-11-12T11:55:21Z"
+        },
+        {
+          "name": "No plaintext Worker host in the binary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-12T11:55:21Z",
+          "completed_at": "2026-11-12T11:55:22Z"
+        },
+        {
+          "name": "Build (unsigned)",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 11,
+          "started_at": "2026-11-12T11:55:22Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Locate built app",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 12,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Package unsigned IPA",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 13,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Gate with verify_unsigned_ipa.py",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 14,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Write checksum",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 15,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Upload unsigned IPA",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:46Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32,
+          "started_at": "2026-11-12T11:55:46Z",
+          "completed_at": "2026-11-12T11:55:47Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33,
+          "started_at": "2026-11-12T11:55:47Z",
+          "completed_at": "2026-11-12T11:55:48Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/thait2471-sys/nbtaimlock-ios-build/check-runs/131165962609",
+      "labels": [
+        "macos-15"
+      ],
+      "runner_id": 1000000023,
+      "runner_name": "GitHub Actions 1000000023",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

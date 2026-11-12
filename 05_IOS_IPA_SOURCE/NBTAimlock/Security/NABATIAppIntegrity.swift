@@ -150,7 +150,9 @@ public final class NABATIAppIntegrity {
 
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PID, getpid()]
+        // KERN_PROC_PID (not KERN_PID) is the Darwin constant for "this pid";
+        // KERN_PID does not exist and the Swift compiler rejects it.
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
         if sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0 {
             if (info.kp_proc.p_flag & P_TRACED) != 0 {
                 failures.append("DEBUGGER_ATTACHED")
