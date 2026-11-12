@@ -651,6 +651,55 @@ class IosIpaToolTests(unittest.TestCase):
         self.assertNotIn("scene_delegate_module_qualified", failed)
 
 
+class IosParitySourceTests(unittest.TestCase):
+    """Pin the high-risk native/web parity behaviors without requiring Xcode."""
+
+    AUTH = (SOURCE_ROOT / "NBTAimlock" / "Authentication" / "NABATIAuthentication.swift").read_text(encoding="utf-8")
+    CORE = (SOURCE_ROOT / "NBTAimlock" / "Core" / "NABATICore.swift").read_text(encoding="utf-8")
+    NATIVE = (SOURCE_ROOT / "NBTAimlock" / "Views" / "NativeAppView.swift").read_text(encoding="utf-8")
+    DASHBOARD = (SOURCE_ROOT / "NBTAimlock" / "Views" / "AimlockDashboardView.swift").read_text(encoding="utf-8")
+    DEVICE = (SOURCE_ROOT / "NBTAimlock" / "Device" / "NABATIDevice.swift").read_text(encoding="utf-8")
+
+    def test_server_remaining_text_is_preserved_through_verify_and_heartbeat(self):
+        self.assertIn('let remainingText = (json["remainingText"] as? String) ?? ""', self.AUTH)
+        self.assertIn("remainingText: remainingText", self.AUTH)
+        self.assertIn("case .valid(let expiresAt, let remainingText):", self.CORE)
+        self.assertIn("remainingText: remainingText.isEmpty ? session.remainingText : remainingText", self.CORE)
+
+    def test_permanent_key_never_renders_as_zero_days(self):
+        self.assertIn('return expiresAtMillis == nil ? "Vĩnh viễn" : "\\(remainingDays) ngày"', self.AUTH)
+        self.assertIn("Text(session.remainingBadge)", self.DASHBOARD)
+        self.assertIn("keyRow(\"Còn lại\", session.remainingLabel", self.DASHBOARD)
+        self.assertIn("keyRow(\"Hết hạn\", session.expiryLabel", self.DASHBOARD)
+
+    def test_key_entry_timer_is_deadline_based_and_blocks_all_inputs(self):
+        self.assertIn("private static let keyEntryTimeLimit: TimeInterval = 45", self.NATIVE)
+        self.assertIn("keyEntryDeadline = now.addingTimeInterval(Self.keyEntryTimeLimit)", self.NATIVE)
+        self.assertIn("keyEntryTimedOut = true", self.NATIVE)
+        self.assertIn(".disabled(isInputBlocked)", self.NATIVE)
+        self.assertIn("Text(unlockButtonLabel)", self.NATIVE)
+        self.assertIn("core.unlockWithKey(cleaned)", self.NATIVE)
+
+    def test_phone_model_choice_changes_only_display_label_not_hardware_binding(self):
+        self.assertIn("private static let confirmedModelKey", self.DEVICE)
+        self.assertIn("public var displayModelName", self.DEVICE)
+        self.assertIn('"deviceId": NABATIDevice.shared.hardwareId', self.AUTH)
+        self.assertIn('"deviceName": NABATIDevice.shared.displayModelName', self.AUTH)
+        self.assertIn("PhoneModelPickerView", self.NATIVE)
+        self.assertIn("NABATIPhoneCatalog.suggestions", self.NATIVE)
+
+    def test_destructive_dashboard_actions_require_confirmation(self):
+        self.assertIn("confirmChangeKey = true", self.DASHBOARD)
+        self.assertIn("confirmLogout = true", self.DASHBOARD)
+        self.assertIn("confirmRestoreDefault = true", self.DASHBOARD)
+        self.assertGreaterEqual(self.DASHBOARD.count(".alert(isPresented:"), 3)
+
+    def test_lock_screen_loads_admin_announcement_marquee(self):
+        self.assertIn("@ObservedObject var store = NABATIFeatureStore.shared", self.NATIVE)
+        self.assertIn("if store.shouldShowMarquee", self.NATIVE)
+        self.assertIn("MarqueeBanner(text: store.marqueeText)", self.NATIVE)
+
+
 class SwiftSourceTargetTests(unittest.TestCase):
     """The regression that shipped once: a file on disk that compiles nowhere.
 

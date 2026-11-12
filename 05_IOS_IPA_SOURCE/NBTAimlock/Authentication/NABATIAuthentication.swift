@@ -15,6 +15,13 @@ public struct NABATISessionInfo {
     /// remains the authority on whether the KEY is still valid.
     public let expiresAtMillis: Double?
 
+    /// The exact remaining-term sentence the server computed for this KEY, e.g.
+    /// `"Vĩnh viễn"` for an Admin/permanent KEY or `"29 ngày 4 giờ"` for a timed
+    /// one. The Worker is the only place that knows how a permanent KEY differs
+    /// from a 0-day one, so the UI renders this string verbatim instead of
+    /// recomputing days locally (which printed "0 NGÀY" for permanent KEYs).
+    public let remainingText: String
+
     public init(
         key: String,
         maskedKey: String,
@@ -23,7 +30,8 @@ public struct NABATISessionInfo {
         remainingDays: Int,
         expiresAt: String,
         boundDevice: String,
-        expiresAtMillis: Double? = nil
+        expiresAtMillis: Double? = nil,
+        remainingText: String = ""
     ) {
         self.key = key
         self.maskedKey = maskedKey
@@ -33,6 +41,35 @@ public struct NABATISessionInfo {
         self.expiresAt = expiresAt
         self.boundDevice = boundDevice
         self.expiresAtMillis = expiresAtMillis
+        self.remainingText = remainingText
+    }
+
+    /// Server wording with a local fallback for older deployments that do not
+    /// send `remainingText`: no expiry means a permanent KEY.
+    public var remainingLabel: String {
+        let text = remainingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty { return text }
+        return expiresAtMillis == nil ? "Vĩnh viễn" : "\(remainingDays) ngày"
+    }
+
+    /// Compact badge for the header. Permanent KEYs must never read "0 NGÀY".
+    public var remainingBadge: String {
+        let text = remainingText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.contains("vĩnh viễn") || text.contains("vinh vien") {
+            return "VĨNH VIỄN"
+        }
+        if remainingDays > 0 { return "\(remainingDays) NGÀY" }
+        let label = remainingLabel
+        return label.isEmpty ? "—" : label.uppercased()
+    }
+
+    /// Expiry row text: a permanent KEY has no expiry instant to print.
+    public var expiryLabel: String {
+        let text = remainingText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.contains("vĩnh viễn") || text.contains("vinh vien") {
+            return "Không giới hạn"
+        }
+        return expiresAt.isEmpty ? "—" : expiresAt
     }
 }
 
@@ -90,7 +127,9 @@ public final class NABATIAuthentication {
         let body: [String: Any] = [
             "key": cleanedKey,
             "deviceId": NABATIDevice.shared.hardwareId,
-            "deviceName": NABATIDevice.shared.modelName,
+            // The customer-confirmed label, falling back to the detected
+            // model. This is display metadata for Admin; binding is `deviceId`.
+            "deviceName": NABATIDevice.shared.displayModelName,
             "clientPlatform": NABATIAppVersion.clientPlatform,
             "platform": NABATIAppVersion.platform,
             "appVersion": NABATIAppVersion.version,
@@ -132,6 +171,9 @@ public final class NABATIAuthentication {
                     ?? json["daysRemaining"] as? Int
                     ?? self.remainingDays(from: json)
                 let exp = self.expiresAtString(json["expiresAt"])
+                // The Worker already formats permanent vs timed KEYs. Keep its
+                // wording so the app cannot disagree with the web client.
+                let remainingText = (json["remainingText"] as? String) ?? ""
 
                 NABATICrypto.shared.saveSessionToken(token)
                 NABATICrypto.shared.saveActiveLicenseKey(cleanedKey)
@@ -143,8 +185,9 @@ public final class NABATIAuthentication {
                     planType: plan,
                     remainingDays: remaining,
                     expiresAt: exp,
-                    boundDevice: NABATIDevice.shared.modelName,
-                    expiresAtMillis: self.expiresAtMillis(json["expiresAt"])
+                    boundDevice: NABATIDevice.shared.displayModelName,
+                    expiresAtMillis: self.expiresAtMillis(json["expiresAt"]),
+                    remainingText: remainingText
                 )
                 completion(.success(.authorized(session)))
 

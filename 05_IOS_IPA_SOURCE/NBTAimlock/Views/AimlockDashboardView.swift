@@ -23,6 +23,21 @@ struct AimlockDashboardView: View {
     /// Document open in the legal reader, if any.
     @State private var legalSelection: NABATILegalSelection? = nil
 
+    /// Web parity: the web client guards every destructive action with
+    /// `confirm(...)` before logging out or resetting modules. The native build
+    /// did it immediately, which loses the KEY session on a stray tap.
+    @State private var confirmChangeKey = false
+    @State private var confirmLogout = false
+    @State private var confirmRestoreDefault = false
+
+    /// Web parity: the preset copy button shows a short confirmation instead of
+    /// relying on an invisible message.
+    @State private var presetCopied = false
+
+    /// Web parity: the customer may re-confirm the display model.
+    @State private var showModelPicker = false
+    @State private var modelRevision = 0
+
     /// The web client greets the customer once after unlock and offers to hide
     /// the greeting for two hours. Same behaviour here, stored in UserDefaults.
     @State private var showWelcome = false
@@ -88,7 +103,7 @@ struct AimlockDashboardView: View {
                     .font(.system(size: 20, weight: .heavy))
                     .foregroundColor(.white)
 
-                Text("\(NABATIDevice.shared.modelName) • iOS \(NABATIDevice.shared.systemVersion)")
+                Text("\(NABATIDevice.shared.displayModelName) • iOS \(NABATIDevice.shared.systemVersion)")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(accent)
                     .padding(.horizontal, 12)
@@ -162,7 +177,7 @@ struct AimlockDashboardView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text("\(session.remainingDays) NGÀY")
+                Text(session.remainingBadge)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(accentGreen)
                     .padding(.horizontal, 10)
@@ -179,13 +194,22 @@ struct AimlockDashboardView: View {
                         .font(.system(size: 9, weight: .bold))
                         .tracking(1.2)
                         .foregroundColor(Color(red: 90/255, green: 104/255, blue: 132/255))
-                    Text(NABATIDevice.shared.modelName)
+                    Text(NABATIDevice.shared.displayModelName)
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundColor(Color(red: 200/255, green: 212/255, blue: 232/255))
                         .lineLimit(1)
                 }
                 Spacer()
-                Button(action: { core.logout() }) {
+                Button(action: { showModelPicker = true }) {
+                    Text("📱")
+                        .font(.system(size: 13))
+                        .foregroundColor(accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        .background(accent.opacity(0.12))
+                        .cornerRadius(8)
+                }
+                Button(action: { confirmChangeKey = true }) {
                     Text("Đổi Key")
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundColor(Color(red: 248/255, green: 113/255, blue: 113/255))
@@ -193,6 +217,14 @@ struct AimlockDashboardView: View {
                         .padding(.vertical, 6)
                         .background(Color(red: 248/255, green: 113/255, blue: 113/255).opacity(0.12))
                         .cornerRadius(9)
+                }
+                .alert(isPresented: $confirmChangeKey) {
+                    Alert(
+                        title: Text("Đổi mã key khác?"),
+                        message: Text("Bạn sẽ quay lại màn hình nhập KEY. Các module đang bật sẽ được tắt."),
+                        primaryButton: .destructive(Text("Đổi key")) { core.logout() },
+                        secondaryButton: .cancel(Text("Hủy"))
+                    )
                 }
             }
 
@@ -213,6 +245,13 @@ struct AimlockDashboardView: View {
         )
         .padding(.horizontal, 16)
         .padding(.top, 16)
+        // iOS 14 presents one `.sheet` per view reliably, so this rides on the
+        // header card while the root keeps the legal-document sheet.
+        .sheet(isPresented: $showModelPicker) {
+            PhoneModelPickerView(isPresented: $showModelPicker) { _ in
+                modelRevision += 1
+            }
+        }
     }
 
     // MARK: - Tab bar
@@ -409,7 +448,7 @@ struct AimlockDashboardView: View {
                 }
             }
 
-            Button(action: { store.restoreDefaultDeviceState() }) {
+            Button(action: { confirmRestoreDefault = true }) {
                 Text("↺ Khôi phục mặc định")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Color(red: 169/255, green: 182/255, blue: 206/255))
@@ -418,6 +457,14 @@ struct AimlockDashboardView: View {
                     .background(Color(red: 20/255, green: 27/255, blue: 43/255))
                     .cornerRadius(11)
                     .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color(red: 42/255, green: 55/255, blue: 82/255), lineWidth: 1))
+            }
+            .alert(isPresented: $confirmRestoreDefault) {
+                Alert(
+                    title: Text("Khôi phục mặc định?"),
+                    message: Text("Tất cả module tối ưu đang bật sẽ được tắt về trạng thái ban đầu."),
+                    primaryButton: .destructive(Text("Khôi phục")) { store.restoreDefaultDeviceState() },
+                    secondaryButton: .cancel(Text("Hủy"))
+                )
             }
         }
         .padding(16)
@@ -561,10 +608,17 @@ struct AimlockDashboardView: View {
                     .cornerRadius(12)
                 }
 
-                Button(action: { core.copySensitivityPreset() }) {
+                Button(action: {
+                    let copied = core.copySensitivityPreset()
+                    guard copied else { return }
+                    presetCopied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        presetCopied = false
+                    }
+                }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "doc.on.doc.fill")
-                        Text("SAO CHÉP")
+                        Image(systemName: presetCopied ? "checkmark.circle.fill" : "doc.on.doc.fill")
+                        Text(presetCopied ? "ĐÃ SAO CHÉP" : "SAO CHÉP")
                             .font(.system(size: 12, weight: .bold))
                     }
                     .foregroundColor(accent)
@@ -596,11 +650,11 @@ struct AimlockDashboardView: View {
                 keyDivider
                 keyRow("Trạng thái", "Hoạt động", color: accentGreen)
                 keyDivider
-                keyRow("Còn lại", "\(session.remainingDays) ngày", color: accentGreen)
+                keyRow("Còn lại", session.remainingLabel, color: accentGreen)
                 keyDivider
-                keyRow("Hết hạn", session.expiresAt)
+                keyRow("Hết hạn", session.expiryLabel)
                 keyDivider
-                keyRow("Thiết bị", NABATIDevice.shared.modelName)
+                keyRow("Thiết bị", NABATIDevice.shared.displayModelName)
                 keyDivider
                 keyRow("Phiên bản", "v\(NABATIAppVersion.version)")
             }
@@ -630,7 +684,7 @@ struct AimlockDashboardView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
 
-            Button(action: { core.logout() }) {
+            Button(action: { confirmLogout = true }) {
                 Text("⎋ Đăng xuất / Đổi key")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(Color(red: 248/255, green: 113/255, blue: 113/255))
@@ -639,6 +693,14 @@ struct AimlockDashboardView: View {
                     .background(Color(red: 248/255, green: 113/255, blue: 113/255).opacity(0.1))
                     .cornerRadius(11)
                     .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color(red: 248/255, green: 113/255, blue: 113/255).opacity(0.3), lineWidth: 1))
+            }
+            .alert(isPresented: $confirmLogout) {
+                Alert(
+                    title: Text("Đăng xuất khỏi key hiện tại?"),
+                    message: Text("Phiên sử dụng trên máy này sẽ kết thúc. KEY của bạn không bị thay đổi."),
+                    primaryButton: .destructive(Text("Đăng xuất")) { core.logout() },
+                    secondaryButton: .cancel(Text("Hủy"))
+                )
             }
         }
         .padding(16)
@@ -755,7 +817,7 @@ struct AimlockDashboardView: View {
 /// A miss returns the server's suggestion list as tappable chips; that is a
 /// normal answer, not an error state to hide.
 private struct SensitivityLookupView: View {
-    @State private var inputModel: String = NABATIDevice.shared.modelName
+    @State private var inputModel: String = NABATIDevice.shared.displayModelName
     @State private var searching: Bool = false
     @State private var errorText: String? = nil
     @State private var suggestions: [NABATISensitivityLookup.NABATISensitivitySuggestion] = []
@@ -1103,7 +1165,9 @@ private struct FeatureRow: View {
 /// The web client uses a CSS marquee. UIKit's `UIView.animate` is used here with
 /// `.repeat` so the text loops without a Timer, which keeps the run loop free and
 /// survives backgrounding without accumulating work.
-private struct MarqueeBanner: View {
+/// Internal, not private: the lock screen shows the same admin-controlled
+/// notice bar the web client renders above its KEY form.
+struct MarqueeBanner: View {
     let text: String
 
     var body: some View {

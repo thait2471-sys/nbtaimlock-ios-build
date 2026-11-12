@@ -226,7 +226,7 @@ public final class NABATICore: ObservableObject {
 
             NABATIAuthentication.shared.checkHeartbeat { outcome in
                 switch outcome {
-                case .valid(let expiresAt, _):
+                case .valid(let expiresAt, let remainingText):
                     let session = NABATISessionInfo(
                         key: cachedKey,
                         maskedKey: self.maskKey(cachedKey),
@@ -234,8 +234,9 @@ public final class NABATICore: ObservableObject {
                         planType: "VIP",
                         remainingDays: self.daysRemaining(until: expiresAt),
                         expiresAt: self.formatExpiry(expiresAt),
-                        boundDevice: NABATIDevice.shared.modelName,
-                        expiresAtMillis: expiresAt.map { $0 > 100_000_000_000 ? $0 : $0 * 1000 }
+                        boundDevice: NABATIDevice.shared.displayModelName,
+                        expiresAtMillis: expiresAt.map { $0 > 100_000_000_000 ? $0 : $0 * 1000 },
+                        remainingText: remainingText
                     )
                     self.consecutiveUnreachableHeartbeats = 0
                     self.statusMessage = nil
@@ -490,20 +491,28 @@ public final class NABATICore: ObservableObject {
         NABATIAuthentication.shared.checkHeartbeat { [weak self] outcome in
             guard let self = self else { return }
             switch outcome {
-            case .valid(let expiresAt, _):
-                if let expiresAt = expiresAt {
-                    let refreshed = NABATISessionInfo(
-                        key: session.key,
-                        maskedKey: session.maskedKey,
-                        sessionToken: session.sessionToken,
-                        planType: session.planType,
-                        remainingDays: self.daysRemaining(until: expiresAt),
-                        expiresAt: self.formatExpiry(expiresAt),
-                        boundDevice: session.boundDevice,
-                        expiresAtMillis: expiresAt > 100_000_000_000 ? expiresAt : expiresAt * 1000
-                    )
-                    self.appState = .authorized(refreshed)
-                }
+            case .valid(let expiresAt, let remainingText):
+                // Refresh on every positive verdict, including a permanent KEY
+                // (which has no `expiresAt` at all). The server may also have
+                // changed the wording — e.g. an Admin renewed a timed KEY into
+                // a permanent one — so `remainingText` is carried through even
+                // when the expiry instant did not move. A missing expiry keeps
+                // the previously known machine value only when the server gave
+                // no new one AND the KEY is not permanent; the watchdog already
+                // treats `nil` as permanent, so a KEY that loses its expiry is
+                // treated as permanent by both sides consistently.
+                let refreshed = NABATISessionInfo(
+                    key: session.key,
+                    maskedKey: session.maskedKey,
+                    sessionToken: session.sessionToken,
+                    planType: session.planType,
+                    remainingDays: self.daysRemaining(until: expiresAt),
+                    expiresAt: self.formatExpiry(expiresAt),
+                    boundDevice: session.boundDevice,
+                    expiresAtMillis: expiresAt.map { $0 > 100_000_000_000 ? $0 : $0 * 1000 },
+                    remainingText: remainingText.isEmpty ? session.remainingText : remainingText
+                )
+                self.appState = .authorized(refreshed)
                 // A positive server verdict clears the transport grace counter:
                 // the next unreachable run starts its own window rather than
                 // inheriting partial credit from before this heartbeat.

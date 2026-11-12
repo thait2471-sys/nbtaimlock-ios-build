@@ -273,6 +273,40 @@ plaintext trong file.
 
 ---
 
+## 5.5 Parity hành vi với web client (12/11/2026)
+
+Các điểm lệch hành vi so với web đã được đóng, **chỉ ở tầng hiển thị và UX**;
+máy chủ vẫn là nơi quyết định cuối cùng:
+
+- **KEY vĩnh viễn / Admin không còn hiện "0 NGÀY".** `/api/verify` và
+  `/api/heartbeat` trả `remainingText` (ví dụ "Vĩnh viễn"); app giữ nguyên chuỗi
+  đó qua `NABATISessionInfo.remainingText` từ verify → bootstrap → heartbeat và
+  hiển thị nguyên văn ở badge header, tab KEY ("Còn lại", "Hết hạn").
+  Watchdog vẫn chỉ dựa trên `expiresAtMillis`; `nil` = vĩnh viễn, đúng như server.
+- **Khung nhập KEY có hạn 45 giây** (`keyEntryTimeLimit`), tính bằng deadline
+  wall-clock nên thời gian ở background vẫn tính. Hết hạn thì khóa ô nhập, nút
+  DÁN KEY, nút UNLOCK và tự xóa nội dung; thoát bằng cách mở lại app — giống
+  `sessionStorage` bên web. Đây chỉ là UX guard, không thay lockout phía server.
+- **Enter để gửi, dán KEY tự gửi** đúng như web; cả hai gọi chung
+  `core.unlockWithKey`.
+- **Chọn dòng máy** (`PhoneModelPickerView` + `NABATIPhoneCatalog`) dùng cùng
+  danh mục Apple và luật chuẩn hóa như `validateAndNormalizeRealPhone`. Tên máy
+  đã xác nhận chỉ đi vào `deviceName`/nhãn hiển thị; `deviceId` (hardware UUID)
+  vẫn là thứ server dùng để bind KEY và đếm giới hạn thiết bị.
+- **Hành động phá hủy đều có hộp thoại xác nhận**: Đổi Key, Đăng xuất, Khôi
+  phục mặc định.
+- **Marquee thông báo của Admin** hiện cả ở màn hình khóa lẫn dashboard.
+- Sao chép preset độ nhạy có phản hồi "ĐÃ SAO CHÉP" trong 2 giây.
+
+Không thêm sound/music/fullscreen giả: iOS không có API tương đương Web Audio
+hay Fullscreen Element, và các ô FPS/CPU/ping của web cũng cố ý để "—" vì
+không có nguồn telemetry đáng tin. Thà thiếu còn hơn hiển thị dữ liệu bịa.
+
+Regression test: `IosParitySourceTests` trong `tests/test_ipa_tools.py` pin
+từng hành vi trên ở mức source, chạy được trên Windows không cần Xcode.
+
+---
+
 ## 6. Ký bằng GitHub Actions (khuyến nghị cho bản phát hành)
 
 > **Đã thay đổi:** workflow ký cũ ký file IPA có sẵn trong repo. File đó là bản

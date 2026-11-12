@@ -80,17 +80,209 @@ public extension UIDevice {
     }
 }
 
+// MARK: - Confirmed device model (web-parity "chon dong may")
+//
+// The web client asks the customer to confirm their phone model and stores the
+// confirmed name, which it then sends as `deviceName` so Admin shows a readable
+// device label. iOS can detect the model itself, so the confirmed name defaults
+// to the detected one — but the customer can still change it, which is what the
+// web's "Doi dong may" button does.
+//
+// This affects the *label only*. Device binding, KEY validity and the device
+// limit are decided by the server from `deviceId` (the hardware UUID), so
+// renaming the model can never consume another device slot or bypass a check.
+public enum NABATIPhoneCatalog {
+    public struct Entry {
+        public let brand: String
+        public let name: String
+    }
+
+    public struct Normalized {
+        public let valid: Bool
+        public let canonicalName: String
+        public let message: String
+    }
+
+    /// Mirrors the Apple section of `REAL_PHONE_DATABASE` in the web client so
+    /// both clients suggest the same canonical names.
+    public static let appleModels: [String] = [
+        "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16 Plus", "iPhone 16",
+        "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15 Plus", "iPhone 15",
+        "iPhone 14 Pro Max", "iPhone 14 Pro", "iPhone 14 Plus", "iPhone 14",
+        "iPhone 13 Pro Max", "iPhone 13 Pro", "iPhone 13", "iPhone 13 mini",
+        "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 12", "iPhone 12 mini",
+        "iPhone 11 Pro Max", "iPhone 11 Pro", "iPhone 11",
+        "iPhone XS Max", "iPhone XS", "iPhone XR", "iPhone X",
+        "iPhone 8 Plus", "iPhone 8", "iPhone 7 Plus", "iPhone 7",
+        "iPhone 6s Plus", "iPhone 6s",
+        "iPhone SE (3rd gen)", "iPhone SE (2nd gen)", "iPhone SE",
+        "iPad Pro", "iPad Air", "iPad mini", "iPad Gen 10", "iPad Gen 9"
+    ]
+
+    public static var entries: [Entry] {
+        appleModels.map { Entry(brand: "Apple", name: $0) }
+    }
+
+    /// Case-insensitive substring filter over the catalogue, capped the way the
+    /// web suggestion list is capped.
+    public static func suggestions(for query: String, limit: Int = 40) -> [String] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let matched = q.isEmpty
+            ? appleModels
+            : appleModels.filter { $0.lowercased().contains(q) }
+        return Array(matched.prefix(limit))
+    }
+
+    private static func ok(_ name: String) -> Normalized {
+        Normalized(valid: true, canonicalName: name, message: "")
+    }
+
+    private static func bad(_ message: String) -> Normalized {
+        Normalized(valid: false, canonicalName: "", message: message)
+    }
+
+    private static func groups(of pattern: String, in text: String) -> [String]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, options: [], range: range) else { return nil }
+        var out: [String] = []
+        for idx in 0..<match.numberOfRanges {
+            let r = match.range(at: idx)
+            if r.location == NSNotFound {
+                out.append("")
+            } else if let swiftRange = Range(r, in: text) {
+                out.append(String(text[swiftRange]))
+            } else {
+                out.append("")
+            }
+        }
+        return out
+    }
+
+    private static func titleCase(_ text: String) -> String {
+        return text.split(separator: " ").map { word -> String in
+            guard let first = word.first else { return "" }
+            return String(first).uppercased() + String(word.dropFirst())
+        }.joined(separator: " ")
+    }
+
+    /// Same rules the web client applies in `validateAndNormalizeRealPhone`,
+    /// restricted to the Apple product line.
+    public static func normalize(_ rawInput: String) -> Normalized {
+        let collapsed = rawInput.replacingOccurrences(
+            of: "\\s+", with: " ", options: .regularExpression
+        )
+        let cleaned = collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.count < 2 || cleaned.count > 50 {
+            return bad("Vui lòng nhập tên dòng điện thoại của bạn!")
+        }
+        let lower = cleaned.lowercased()
+
+        for name in appleModels where name.lowercased() == lower {
+            return ok(name)
+        }
+
+        if let g = groups(of: "^(?:ip|iphone)?\\s*(\\d+)\\s*(?:prm|promax|pro\\s*max)$", in: lower),
+           g.count >= 2 {
+            return ok("iPhone \(g[1]) Pro Max")
+        }
+        if groups(of: "^(?:ip|iphone)?\\s*xs\\s*max$", in: lower) != nil { return ok("iPhone XS Max") }
+        if groups(of: "^(?:ip|iphone)?\\s*xs$", in: lower) != nil { return ok("iPhone XS") }
+        if groups(of: "^(?:ip|iphone)?\\s*xr$", in: lower) != nil { return ok("iPhone XR") }
+        if groups(of: "^(?:ip|iphone)?\\s*x$", in: lower) != nil { return ok("iPhone X") }
+
+        if let g = groups(of: "^(?:ip|iphone)?\\s*(6s|7|8)\\s*(?:\\+|\\s*plus)$", in: lower),
+           g.count >= 2 {
+            return ok("iPhone \(g[1]) Plus")
+        }
+
+        if let g = groups(of: "^(?:ip|iphone)?\\s*(\\d{1,2})\\s*(pro\\s*max|pro|plus|\\+|mini)?$", in: cleaned),
+           g.count >= 2 {
+            var suffix = g[2].trimmingCharacters(in: .whitespaces)
+            if suffix == "+" {
+                suffix = "Plus"
+            } else if !suffix.isEmpty {
+                suffix = titleCase(
+                    suffix.replacingOccurrences(of: "\\s*max", with: " Max", options: .regularExpression)
+                )
+            }
+            return ok("iPhone \(g[1]) \(suffix)".trimmingCharacters(in: .whitespaces))
+        }
+
+        if groups(of: "^ipad\\s*(pro|air|mini|\\d+)?", in: lower) != nil {
+            return ok(titleCase(cleaned))
+        }
+
+        if lower.contains("iphone") || lower.contains("ipad") {
+            return ok(titleCase(cleaned))
+        }
+
+        if let g = groups(of: "^(?:s|galaxy\\s*s)?\\s*(\\d{2})\\s*(ultra|plus|\\+|fe)?$", in: lower),
+           g.count >= 2 {
+            var sfx = g[2].uppercased()
+            if sfx == "+" { sfx = "Plus" }
+            let name = ("Samsung Galaxy S\(g[1]) \(sfx)").trimmingCharacters(in: .whitespaces)
+            return ok(name)
+        }
+
+        let known = "samsung|galaxy|xiaomi|redmi|poco|oppo|realme|oneplus|vivo|iqoo|rog|" +
+                    "redmagic|red magic|tecno|infinix|pixel|huawei|honor|vsmart|sony|xperia|" +
+                    "zte|nubia|black\\s*shark"
+        if groups(of: "(\(known))", in: lower) != nil {
+            return ok(titleCase(cleaned))
+        }
+
+        if cleaned.count >= 3,
+           groups(of: "^[a-zA-Z0-9\\s\\.\\+\\-_]+$", in: cleaned) != nil {
+            return ok(titleCase(cleaned))
+        }
+
+        return bad("Tên máy \"\(cleaned)\" không hợp lệ. Vui lòng nhập đúng tên máy của bạn.")
+    }
+}
+
 // MARK: - NABATIDevice Management
 public final class NABATIDevice {
     public static let shared = NABATIDevice()
+    private static let confirmedModelKey = "NBTAIMLOCK_CONFIRMED_PHONE_MODEL_V1"
     private init() {}
 
     public var hardwareId: String {
         return NABATICrypto.shared.getOrCreateHardwareUUID()
     }
 
+    /// The hardware model the OS reports. Never customer-editable: this is what
+    /// the dashboard's hardware fact cell and `deviceModel` in the verify
+    /// payload describe.
     public var modelName: String {
         return UIDevice.modelCommercialName
+    }
+
+    /// The model label the customer confirmed (or the detected model when they
+    /// have not changed it). This is what the UI shows and what is sent as
+    /// `deviceName`, matching the web client's `savedPhone`.
+    public var displayModelName: String {
+        let confirmed = UserDefaults.standard.string(forKey: NABATIDevice.confirmedModelKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return confirmed.isEmpty ? modelName : confirmed
+    }
+
+    /// Validates and stores the customer's model choice.
+    /// - Returns: the canonical name, or `nil` when the input was rejected.
+    @discardableResult
+    public func confirmModelName(_ raw: String) -> String? {
+        let result = NABATIPhoneCatalog.normalize(raw)
+        guard result.valid, !result.canonicalName.isEmpty else { return nil }
+        UserDefaults.standard.set(result.canonicalName, forKey: NABATIDevice.confirmedModelKey)
+        return result.canonicalName
+    }
+
+    public var hasConfirmedModelName: Bool {
+        let confirmed = UserDefaults.standard.string(forKey: NABATIDevice.confirmedModelKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !confirmed.isEmpty
     }
 
     public var systemVersion: String {

@@ -84,7 +84,15 @@ public struct NativeAppView: View {
 // MARK: - Screen 1: Key Verification Screen
 struct KeyVerificationView: View {
     @ObservedObject var core = NABATICore.shared
+    @ObservedObject var store = NABATIFeatureStore.shared
     @State private var inputKey: String = ""
+
+    /// Web parity: each key-entry attempt gets a 45-second UX budget. This is a
+    /// presentation guard only. `/api/verify` and `/api/lockout-status` stay the
+    /// final authorities; the timer can never grant or bypass anything.
+    private static let keyEntryTimeLimit: TimeInterval = 45
+    @State private var keyEntryDeadline: Date? = nil
+    @State private var keyEntryTimedOut = false
 
     /// The server's brute-force state for this device. `nil` means "not known
     /// yet" or "could not ask" — never "unlocked".
@@ -99,6 +107,10 @@ struct KeyVerificationView: View {
     @State private var ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     /// Which legal document the reader sheet is showing, if any.
     @State private var legalSelection: NABATILegalSelection? = nil
+    /// Web parity: the customer can re-confirm which phone model they use.
+    @State private var showModelPicker = false
+    /// Bumped on a confirmed change so the label re-renders.
+    @State private var modelRevision = 0
 
     private var accent: Color { Color(red: 0/255, green: 243/255, blue: 255/255) }
     private var accentGreen: Color { Color(red: 0/255, green: 255/255, blue: 157/255) }
@@ -108,6 +120,38 @@ struct KeyVerificationView: View {
         guard let deadline = lockoutDeadline else { return lockout?.remainingText ?? "00:00" }
         let seconds = max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private var keyEntryRemainingSeconds: Int {
+        guard let deadline = keyEntryDeadline else { return 0 }
+        return max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
+    }
+
+    private var keyEntryRemainingText: String {
+        let seconds = keyEntryRemainingSeconds
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private var isInputBlocked: Bool {
+        keyEntryTimedOut || (lockout?.isLockedOut ?? false) || core.isVerifying || core.isGateBlocking
+    }
+
+    private var unlockButtonLabel: String {
+        if keyEntryTimedOut { return "HẾT THỜI GIAN (45S)" }
+        return core.isVerifying ? "ĐANG XÁC THỰC..." : "MỞ KHÓA NGAY (UNLOCK)"
+    }
+
+    private func beginKeyEntryWindow() {
+        now = Date()
+        keyEntryTimedOut = false
+        keyEntryDeadline = now.addingTimeInterval(Self.keyEntryTimeLimit)
+    }
+
+    private func submitKey() {
+        guard !isInputBlocked else { return }
+        let cleaned = inputKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
+        core.unlockWithKey(cleaned)
     }
 
     private func refreshLockoutStatus() {
@@ -159,6 +203,13 @@ struct KeyVerificationView: View {
                 }
                 .padding(.top, 40)
 
+                // Same admin-authored notice bar as the web lock screen. Config
+                // and announcements both come from the server, so an edit in
+                // Admin reaches this screen without a new build.
+                if store.shouldShowMarquee {
+                    MarqueeBanner(text: store.marqueeText)
+                }
+
                 // Device Identity Card
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -181,7 +232,7 @@ struct KeyVerificationView: View {
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(NABATIDevice.shared.modelName)
+                            Text(NABATIDevice.shared.displayModelName)
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
                             Text("iOS \(NABATIDevice.shared.systemVersion) • \(NABATIDevice.shared.machineId)")
@@ -195,12 +246,34 @@ struct KeyVerificationView: View {
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.gray.opacity(0.8))
                         .lineLimit(1)
+
+                    Button(action: { showModelPicker = true }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "iphone")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("ĐỔI DÒNG MÁY")
+                                .font(.system(size: 10.5, weight: .bold))
+                        }
+                        .foregroundColor(accent)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(accent.opacity(0.12))
+                        .cornerRadius(8)
+                    }
                 }
                 .padding(16)
                 .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.75))
                 .cornerRadius(16)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
                 .padding(.horizontal, 20)
+                // Attached to the device card, not the screen root: iOS 14 only
+                // presents one `.sheet` reliably per view, and the root already
+                // owns the legal-document sheet.
+                .sheet(isPresented: $showModelPicker) {
+                    PhoneModelPickerView(isPresented: $showModelPicker) { _ in
+                        modelRevision += 1
+                    }
+                }
 
                 // Server state chip — never claims ONLINE unless the server said so.
                 ServerStateChip()
@@ -210,23 +283,32 @@ struct KeyVerificationView: View {
                     HStack {
                         Image(systemName: "key.fill")
                             .foregroundColor(accent)
-                        TextField("Nhập mã kích hoạt key...", text: $inputKey)
+                        TextField("Nhập mã kích hoạt key...", text: $inputKey, onCommit: submitKey)
                             .font(.system(size: 15))
                             .foregroundColor(.white)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
+                            .disabled(isInputBlocked)
 
                         if !inputKey.isEmpty {
                             Button(action: { inputKey = "" }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.gray)
                             }
+                            .disabled(isInputBlocked)
                         }
 
                         Button(action: {
-                            if let paste = UIPasteboard.general.string {
-                                inputKey = paste.trimmingCharacters(in: .whitespacesAndNewlines)
-                            }
+                            guard !isInputBlocked,
+                                  let paste = UIPasteboard.general.string else { return }
+                            let cleaned = paste.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !cleaned.isEmpty else { return }
+                            inputKey = cleaned
+                            // Web parity: a non-empty paste goes straight to the
+                            // same server verification as pressing UNLOCK. The
+                            // server still decides the outcome. Pass the cleaned
+                            // string rather than re-reading the @State wrapper.
+                            core.unlockWithKey(cleaned)
                         }) {
                             Text("DÁN KEY")
                                 .font(.system(size: 11, weight: .bold))
@@ -267,6 +349,36 @@ struct KeyVerificationView: View {
                         .padding(.horizontal, 4)
                     }
 
+                    // Local key-entry budget. It never replaces the server
+                    // lockout; it only keeps an abandoned form from staying live.
+                    if keyEntryTimedOut {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("⛔ HẾT THỜI GIAN KÍCH HOẠT (45s)")
+                                .font(.system(size: 11.5, weight: .bold))
+                                .foregroundColor(accentAmber)
+                            Text("Màn hình nhập key đã tự động khóa để bảo mật. Vui lòng tắt hẳn ứng dụng và mở lại để tiếp tục.")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(.gray)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(accentAmber.opacity(0.1))
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(accentAmber.opacity(0.3), lineWidth: 1))
+                    } else if keyEntryDeadline != nil {
+                        HStack(spacing: 8) {
+                            Text("THỜI GIAN KÍCH HOẠT")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundColor(Color.white.opacity(0.55))
+                            Spacer()
+                            Text(keyEntryRemainingText)
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .foregroundColor(keyEntryRemainingSeconds <= 10 ? accentAmber : accent)
+                        }
+                        .padding(.horizontal, 2)
+                    }
+
                     // Brute-force state straight from `/api/lockout-status`.
                     if let state = lockout {
                         if state.isLockedOut {
@@ -297,9 +409,7 @@ struct KeyVerificationView: View {
                     }
 
                     // Unlock Button
-                    Button(action: {
-                        core.unlockWithKey(inputKey)
-                    }) {
+                    Button(action: submitKey) {
                         HStack(spacing: 10) {
                             if core.isVerifying {
                                 ProgressView()
@@ -308,7 +418,7 @@ struct KeyVerificationView: View {
                                 Image(systemName: "lock.open.fill")
                                     .font(.system(size: 16, weight: .bold))
                             }
-                            Text(core.isVerifying ? "ĐANG XÁC THỰC..." : "MỞ KHÓA NGAY (UNLOCK)")
+                            Text(unlockButtonLabel)
                                 .font(.system(size: 15, weight: .bold))
                         }
                         .foregroundColor(.black)
@@ -322,8 +432,8 @@ struct KeyVerificationView: View {
                         .cornerRadius(14)
                         .shadow(color: accent.opacity(0.4), radius: 8, y: 4)
                     }
-                    .disabled(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isVerifying || core.isGateBlocking || (lockout?.isLockedOut ?? false))
-                    .opacity(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || core.isGateBlocking || (lockout?.isLockedOut ?? false) ? 0.6 : 1.0)
+                    .disabled(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isInputBlocked)
+                    .opacity(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isInputBlocked ? 0.6 : 1.0)
                 }
                 .padding(20)
                 .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.75))
@@ -363,11 +473,21 @@ struct KeyVerificationView: View {
             }
         }
         .onAppear {
+            beginKeyEntryWindow()
             refreshLockoutStatus()
+            store.loadConfigIfNeeded()
         }
         .onReceive(ticker) { tick in
-            guard lockoutDeadline != nil else { return }
             now = tick
+            // Wall-clock deadline, so time spent in the background counts even
+            // though iOS suspends the ticker. Timers are presentation only.
+            if !keyEntryTimedOut,
+               let deadline = keyEntryDeadline,
+               deadline.timeIntervalSince(tick) <= 0 {
+                keyEntryTimedOut = true
+                keyEntryDeadline = nil
+                inputKey = ""
+            }
             if let deadline = lockoutDeadline, deadline.timeIntervalSince(tick) <= 0 {
                 // The lock has elapsed; ask again rather than trusting the
                 // clock. If the server still refuses, the new deadline applies.
@@ -728,5 +848,163 @@ struct SensitivitySliderRow: View {
             Slider(value: $value, in: 50...100, step: 1)
                 .accentColor(Color(red: 0/255, green: 243/255, blue: 255/255))
         }
+    }
+}
+
+
+// MARK: - Phone model picker (web parity: "CHỌN DÒNG MÁY")
+
+/// Mirrors the web client's phone-confirmation screen: detected model shown
+/// first, a filtered suggestion list, and an explicit confirm. Only the display
+/// label changes — the server still binds the KEY to `NABATIDevice.hardwareId`.
+struct PhoneModelPickerView: View {
+    @Binding var isPresented: Bool
+    var onConfirmed: (String) -> Void
+
+    @State private var query: String = NABATIDevice.shared.hasConfirmedModelName
+        ? NABATIDevice.shared.displayModelName
+        : NABATIDevice.shared.modelName
+    @State private var errorText: String? = nil
+
+    private var accent: Color { Color(red: 0/255, green: 243/255, blue: 255/255) }
+    private var accentGreen: Color { Color(red: 0/255, green: 255/255, blue: 157/255) }
+
+    private var suggestions: [String] {
+        NABATIPhoneCatalog.suggestions(for: query)
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 6/255, green: 9/255, blue: 19/255),
+                    Color(red: 10/255, green: 15/255, blue: 30/255)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ).ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("CHỌN DÒNG MÁY")
+                                .font(.system(size: 18, weight: .black))
+                                .foregroundColor(.white)
+                            Text("Tự động nhận diện iOS: \(NABATIDevice.shared.modelName) • iOS \(NABATIDevice.shared.systemVersion)")
+                                .font(.system(size: 11))
+                                .foregroundColor(accent)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        Button(action: { isPresented = false }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color.white.opacity(0.35))
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("TÊN DÒNG MÁY")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1.2)
+                            .foregroundColor(Color(red: 90/255, green: 104/255, blue: 132/255))
+
+                        TextField("Ví dụ: iPhone 15 Pro Max", text: $query)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                            .autocapitalization(.words)
+                            .disableAutocorrection(true)
+                            .padding(12)
+                            .background(Color(red: 12/255, green: 18/255, blue: 34/255))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(accent.opacity(0.4), lineWidth: 1))
+
+                        if let errorText = errorText {
+                            Text(errorText)
+                                .font(.system(size: 11.5))
+                                .foregroundColor(Color(red: 248/255, green: 113/255, blue: 113/255))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Button(action: confirm) {
+                            HStack(spacing: 8) {
+                                Image(systemName: nbtSymbol("checkmark.seal.fill", fallback: "checkmark.circle.fill"))
+                                Text("XÁC NHẬN DÒNG MÁY")
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(LinearGradient(
+                                colors: [accent, accentGreen],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .cornerRadius(11)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.85))
+                    .cornerRadius(16)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+
+                    VStack(spacing: 0) {
+                        ForEach(suggestions, id: \.self) { name in
+                            Button(action: {
+                                query = name
+                                errorText = nil
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "iphone")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(accent.opacity(0.8))
+                                    Text(name)
+                                        .font(.system(size: 12.5, weight: .medium))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    if name == NABATIDevice.shared.displayModelName {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(accentGreen)
+                                    }
+                                }
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 11)
+                            }
+                            if name != suggestions.last {
+                                Divider().background(Color.white.opacity(0.06))
+                            }
+                        }
+                    }
+                    .background(Color(red: 16/255, green: 22/255, blue: 40/255).opacity(0.7))
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+
+                    Text("Tên máy chỉ dùng để hiển thị trong quản trị và gợi ý độ nhạy. KEY vẫn được khóa theo mã phần cứng của thiết bị.")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(Color(red: 139/255, green: 151/255, blue: 179/255))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 24)
+                }
+                .padding(20)
+            }
+        }
+    }
+
+    private func confirm() {
+        let result = NABATIPhoneCatalog.normalize(query)
+        guard result.valid else {
+            errorText = result.message
+            return
+        }
+        guard let canonical = NABATIDevice.shared.confirmModelName(result.canonicalName) else {
+            errorText = "Tên máy không hợp lệ."
+            return
+        }
+        errorText = nil
+        onConfirmed(canonical)
+        isPresented = false
     }
 }
